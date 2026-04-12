@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>JyotishConnect v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<!-- Razorpay SDK -->
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<!-- Agora SDK -->
+<script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.19.0.js"></script>
+<style>
+:root {
+  --cosmic: #080618;
+  --deep: #0F0C2A;
+  --navy: #15103D;
+  --panel: #1C1650;
+  --card: #221E5C;
+  --border: #2E2870;
+  --gold: #D4A843;
+  --gold-light: #F0C96A;
+  --gold-dim: rgba(212,168,67,0.15);
+  --cream: #F5E6C8;
+  --text: #EAE0FF;
+  --muted: rgba(234,224,255,0.5);
+  --green: #4ECBA0;
+  --red: #FF6B6B;
+  --orange: #FF9F43;
+  --purple: #A78BFA;
+  --blue: #60A5FA;
+  --r: 12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--cosmic);font-family:'Outfit',sans-serif;color:var(--text);display:flex;justify-content:center;align-items:flex-start;min-height:100vh;padding:24px 16px 40px}
+.phone-wrap{width:100%;max-width:390px;position:relative}
+.phone-label{text-align:center;font-size:11px;letter-spacing:2px;color:var(--muted);margin-bottom:12px;text-transform:uppercase}
+.phone{background:var(--deep);border-radius:36px;border:1.5px solid var(--border);overflow:hidden;box-shadow:0 0 60px rgba(167,139,250,0.08),0 0 0 1px rgba(212,168,67,0.05);position:relative;min-height:780px;display:flex;flex-direction:column}
+.notch{height:36px;background:var(--cosmic);display:flex;align-items:center;justify-content:center}
+.notch-bar{width:90px;height:6px;background:var(--border);border-radius:3px}
+.screen{display:none;flex-direction:column;flex:1;overflow:hidden;position:relative}
+.screen.active{display:flex}
+.screen-body{flex:1;overflow-y:auto;padding:0 20px 24px;scrollbar-width:none}
+.screen-body::-webkit-scrollbar{display:none}
+.topbar{padding:16px 20px 12px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.topbar-title{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:700;color:var(--gold);flex:1}
+.back-btn{width:36px;height:36px;border-radius:50%;background:var(--panel);border:1px solid var(--border);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;flex-shrink:0}
+.wallet-chip{background:var(--gold-dim);border:1px solid rgba(212,168,67,0.3);border-radius:20px;padding:4px 10px;font-size:13px;color:var(--gold);font-weight:600;cursor:pointer;white-space:nowrap}
+.cosmic-bg{position:absolute;top:-40px;right:-60px;width:220px;height:220px;background:radial-gradient(circle,rgba(167,139,250,0.12) 0%,transparent 70%);border-radius:50%;pointer-events:none}
+h1{font-family:'Cormorant Garamond',serif;font-size:32px;line-height:1.1}
+h2{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600}
+h3{font-size:15px;font-weight:600}
+.label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted);font-size:13px}
+.btn-primary{width:100%;background:linear-gradient(135deg,var(--gold),#B8841E);color:#1a0e00;border:none;border-radius:var(--r);padding:15px;font-size:15px;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif;transition:opacity 0.2s,transform 0.1s;letter-spacing:0.3px}
+.btn-primary:hover{opacity:0.92}
+.btn-primary:active{transform:scale(0.98)}
+.btn-primary:disabled{opacity:0.4;cursor:not-allowed}
+.btn-ghost{width:100%;background:transparent;color:var(--text);border:1px solid var(--border);border-radius:var(--r);padding:14px;font-size:14px;cursor:pointer;font-family:'Outfit',sans-serif;transition:background 0.2s}
+.btn-ghost:hover{background:var(--panel)}
+.input-group{margin-bottom:16px}
+.input-label{font-size:12px;color:var(--muted);margin-bottom:6px;letter-spacing:0.5px}
+input[type="text"],input[type="tel"],input[type="date"],input[type="time"],input[type="search"],select,textarea{width:100%;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:13px 14px;color:var(--text);font-size:15px;font-family:'Outfit',sans-serif;outline:none;transition:border-color 0.2s}
+input:focus,select:focus,textarea:focus{border-color:var(--gold)}
+select option{background:var(--panel);color:var(--text)}
+.phone-input-row{display:flex;gap:10px;align-items:stretch}
+.phone-prefix{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:13px 14px;color:var(--gold);font-size:15px;font-weight:600;white-space:nowrap}
+.phone-prefix span{color:var(--muted);font-size:12px}
+.otp-row{display:flex;gap:10px;justify-content:center}
+.otp-box{width:52px;height:60px;background:var(--panel);border:1px solid var(--border);border-radius:10px;text-align:center;font-size:24px;font-weight:600;color:var(--gold);outline:none;font-family:'Cormorant Garamond',serif;transition:border-color 0.2s}
+.otp-box:focus{border-color:var(--gold)}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.card-gold{background:linear-gradient(135deg,rgba(212,168,67,0.1),rgba(212,168,67,0.04));border-color:rgba(212,168,67,0.25)}
+/* SPLASH */
+.splash-hero{padding:40px 20px 24px;text-align:center}
+.splash-mandala{width:120px;height:120px;margin:0 auto 24px;position:relative}
+.mandala-ring{position:absolute;border-radius:50%;border:1px solid rgba(212,168,67,0.3);animation:spin linear infinite}
+.mandala-ring:nth-child(1){width:120px;height:120px;top:0;left:0;animation-duration:20s;border-style:dashed}
+.mandala-ring:nth-child(2){width:88px;height:88px;top:16px;left:16px;animation-duration:15s;animation-direction:reverse}
+.mandala-ring:nth-child(3){width:56px;height:56px;top:32px;left:32px;animation-duration:10s}
+.mandala-center{position:absolute;width:32px;height:32px;top:50%;left:50%;transform:translate(-50%,-50%);background:radial-gradient(circle,var(--gold),#8B5E00);border-radius:50%;box-shadow:0 0 20px rgba(212,168,67,0.4);font-size:16px;display:flex;align-items:center;justify-content:center}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.app-name{font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:700;color:var(--gold);letter-spacing:1px}
+.app-tagline{font-size:13px;color:var(--muted);margin-top:4px;letter-spacing:1px}
+/* STEPS */
+.steps{display:flex;gap:6px;padding:0 20px;margin-bottom:20px}
+.step-dot{flex:1;height:3px;background:var(--border);border-radius:2px;transition:background 0.3s}
+.step-dot.done{background:var(--gold)}
+.step-dot.active{background:var(--gold-light)}
+/* RASHI BANNER */
+.rashi-banner{background:linear-gradient(135deg,rgba(167,139,250,0.15),rgba(212,168,67,0.08));border:1px solid rgba(167,139,250,0.25);border-radius:var(--r);padding:16px;display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.rashi-icon{font-size:32px;width:52px;height:52px;background:var(--panel);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.rashi-info h3{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--purple)}
+.rashi-info p{font-size:12px;color:var(--muted);margin-top:2px}
+/* MUHURAT */
+.muhurat-row{display:flex;gap:8px;margin-bottom:16px}
+.muhurat-chip{flex:1;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center}
+.muhurat-chip .time{font-size:13px;font-weight:600;color:var(--green)}
+.muhurat-chip .act{font-size:10px;color:var(--muted);margin-top:2px}
+/* HOROSCOPE STRIP */
+.horoscope-strip{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:16px;scrollbar-width:none}
+.horoscope-strip::-webkit-scrollbar{display:none}
+.rashi-pill{flex-shrink:0;background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:6px 12px;text-align:center;cursor:pointer;transition:all 0.2s;font-size:12px}
+.rashi-pill.mine{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+.rashi-pill .rp-sign{font-size:16px;display:block}
+.rashi-pill .rp-name{font-size:10px;color:var(--muted)}
+/* ASTROLOGER CARDS */
+.astro-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:border-color 0.2s,background 0.2s}
+.astro-card:hover{border-color:var(--gold);background:rgba(212,168,67,0.03)}
+.astro-avatar{width:54px;height:54px;border-radius:50%;flex-shrink:0;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:24px;position:relative;border:2px solid var(--border)}
+.status-dot{position:absolute;bottom:2px;right:2px;width:11px;height:11px;border-radius:50%;border:2px solid var(--panel)}
+.status-dot.online{background:var(--green)}
+.status-dot.busy{background:var(--orange)}
+.status-dot.offline{background:var(--muted)}
+.astro-info{flex:1;min-width:0}
+.astro-name{font-size:15px;font-weight:600}
+.astro-spec{font-size:11px;color:var(--muted);margin-top:1px}
+.astro-meta{display:flex;gap:8px;align-items:center;margin-top:5px}
+.rating{font-size:12px;color:var(--gold)}
+.calls-count{font-size:11px;color:var(--muted)}
+.lang-chips{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap}
+.lang-chip{background:var(--card);border-radius:4px;padding:1px 6px;font-size:10px;color:var(--muted)}
+.astro-rate{text-align:right;flex-shrink:0}
+.rate-num{font-size:14px;font-weight:700;color:var(--gold)}
+.rate-label{font-size:10px;color:var(--muted)}
+.call-btn-sm{background:var(--green);color:#001f0f;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;margin-top:6px;font-family:'Outfit',sans-serif}
+.call-btn-sm.busy-btn{background:var(--orange);color:#1a0900}
+.call-btn-sm.offline-btn{background:var(--border);color:var(--muted);cursor:not-allowed}
+/* SEARCH BAR */
+.search-bar{position:relative;padding:0 20px 12px}
+.search-bar input{padding-left:40px;background:var(--panel)}
+.search-bar .search-icon{position:absolute;left:34px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)}
+/* FILTER ROW */
+.filter-scroll{display:flex;gap:8px;overflow-x:auto;padding:0 20px 14px;scrollbar-width:none}
+.filter-scroll::-webkit-scrollbar{display:none}
+.filter-chip{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;white-space:nowrap;cursor:pointer;transition:all 0.2s;color:var(--muted)}
+.filter-chip.active{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+/* PROFILE */
+.profile-hero{background:linear-gradient(180deg,var(--card) 0%,var(--panel) 100%);padding:24px 20px 20px;text-align:center;border-bottom:1px solid var(--border);margin-bottom:16px}
+.profile-avatar-lg{width:72px;height:72px;border-radius:50%;margin:0 auto 12px;background:var(--navy);font-size:36px;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold);box-shadow:0 0 20px rgba(212,168,67,0.2)}
+.verified-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(78,203,160,0.12);border:1px solid rgba(78,203,160,0.3);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--green);margin-top:6px}
+.stats-row{display:flex;gap:8px;margin:16px 0}
+.stat-box{flex:1;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center}
+.stat-val{font-size:18px;font-weight:700;color:var(--gold);font-family:'Cormorant Garamond',serif}
+.stat-lbl{font-size:10px;color:var(--muted);margin-top:2px}
+/* CALL SCREEN */
+.call-hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;background:radial-gradient(ellipse at 50% 30%,rgba(167,139,250,0.1) 0%,transparent 60%);text-align:center}
+.call-avatar{width:100px;height:100px;border-radius:50%;background:var(--card);font-size:50px;display:flex;align-items:center;justify-content:center;margin-bottom:20px;border:3px solid rgba(78,203,160,0.4);box-shadow:0 0 0 6px rgba(78,203,160,0.08),0 0 40px rgba(78,203,160,0.15);animation:pulse-call 2s ease-in-out infinite}
+@keyframes pulse-call{0%,100%{box-shadow:0 0 0 6px rgba(78,203,160,0.08),0 0 40px rgba(78,203,160,0.15)}50%{box-shadow:0 0 0 12px rgba(78,203,160,0.04),0 0 60px rgba(78,203,160,0.25)}}
+.call-name{font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:700;margin-bottom:4px}
+.call-timer{font-size:48px;font-weight:300;color:var(--green);letter-spacing:2px;margin:16px 0 8px;font-family:'Cormorant Garamond',serif}
+.call-cost{font-size:14px;color:var(--gold)}
+.call-wallet{font-size:12px;color:var(--muted);margin-top:4px}
+.call-controls{display:flex;gap:20px;justify-content:center;padding:20px 24px 32px}
+.ctrl-btn{width:60px;height:60px;border-radius:50%;border:none;cursor:pointer;font-size:22px;transition:opacity 0.2s,transform 0.1s;display:flex;align-items:center;justify-content:center}
+.ctrl-btn:active{transform:scale(0.92)}
+.ctrl-btn.mute-btn{background:var(--panel);border:1px solid var(--border);color:var(--text)}
+.ctrl-btn.speaker-btn{background:var(--panel);border:1px solid var(--border);color:var(--text)}
+.ctrl-btn.end-btn{background:var(--red);color:white;width:72px;height:72px;font-size:26px}
+.ctrl-btn.toggled{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+/* WALLET MODAL */
+.modal-overlay{position:absolute;inset:0;background:rgba(8,6,24,0.85);backdrop-filter:blur(4px);z-index:100;display:flex;align-items:flex-end;padding:16px}
+.modal-sheet{background:var(--navy);border:1px solid var(--border);border-radius:20px;padding:24px;width:100%;animation:slide-up 0.3s ease}
+@keyframes slide-up{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-title{font-family:'Cormorant Garamond',serif;font-size:22px;margin-bottom:6px}
+.recharge-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}
+.recharge-option{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;cursor:pointer;transition:all 0.2s}
+.recharge-option:hover,.recharge-option.selected{border-color:var(--gold);background:var(--gold-dim)}
+.recharge-amount{font-size:20px;font-weight:700;color:var(--gold)}
+.recharge-desc{font-size:11px;color:var(--muted);margin-top:2px}
+.recharge-bonus{font-size:10px;color:var(--green);margin-top:1px}
+/* RATING */
+.rating-hero{text-align:center;padding:32px 20px 20px}
+.rating-circle{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,rgba(78,203,160,0.2),rgba(78,203,160,0.05));border:2px solid rgba(78,203,160,0.4);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:36px}
+.star-row{display:flex;gap:10px;justify-content:center;margin:16px 0}
+.star{font-size:36px;cursor:pointer;transition:transform 0.15s;opacity:0.3}
+.star.lit{opacity:1}
+.star:hover{transform:scale(1.2)}
+/* BOTTOM NAV */
+.bottom-nav{display:flex;border-top:1px solid var(--border);background:var(--deep);padding:10px 0 14px;flex-shrink:0}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0;transition:color 0.2s;color:var(--muted)}
+.nav-item.active{color:var(--gold)}
+.nav-icon{font-size:20px}
+.nav-label{font-size:9px;letter-spacing:0.5px}
+/* CONCERN TAGS */
+.concern-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.concern-tag{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 8px;text-align:center;cursor:pointer;transition:all 0.2s}
+.concern-tag .icon{font-size:20px;display:block;margin-bottom:4px}
+.concern-tag .name{font-size:11px;color:var(--muted)}
+.concern-tag.selected{border-color:var(--gold);background:var(--gold-dim)}
+.concern-tag.selected .name{color:var(--gold)}
+/* DIVIDER */
+.divider{height:1px;background:var(--border);margin:16px 0}
+.section-head{font-size:12px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:12px}
+/* CONNECTING */
+.connecting-dots span{display:inline-block;animation:blink 1.2s infinite;font-size:24px;color:var(--green)}
+.connecting-dots span:nth-child(2){animation-delay:0.4s}
+.connecting-dots span:nth-child(3){animation-delay:0.8s}
+@keyframes blink{0%,80%,100%{opacity:0.2}40%{opacity:1}}
+/* TOAST */
+.toast{position:absolute;top:60px;left:16px;right:16px;background:var(--card);border:1px solid var(--gold);border-radius:10px;padding:12px 16px;font-size:13px;z-index:200;animation:toast-in 0.3s ease,toast-out 0.3s ease 2s forwards;display:flex;align-items:center;gap:8px}
+@keyframes toast-in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes toast-out{to{opacity:0;transform:translateY(-8px)}}
+.hidden{display:none !important}
+/* CALL HISTORY */
+.call-history-item{display:flex;align-items:center;gap:12px;padding:14px;background:var(--panel);border:1px solid var(--border);border-radius:var(--r);margin-bottom:10px;cursor:pointer;transition:border-color 0.2s}
+.call-history-item:hover{border-color:var(--gold)}
+.ch-avatar{width:44px;height:44px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.ch-info{flex:1;min-width:0}
+.ch-name{font-size:14px;font-weight:600}
+.ch-date{font-size:11px;color:var(--muted);margin-top:2px}
+.ch-duration{font-size:11px;color:var(--green);margin-top:1px}
+.ch-cost{font-size:14px;font-weight:600;color:var(--gold);flex-shrink:0}
+.ch-rating{font-size:11px;color:var(--muted);margin-top:2px;text-align:right}
+/* EMPTY STATE */
+.empty-state{text-align:center;padding:48px 24px;color:var(--muted)}
+.empty-state .empty-icon{font-size:48px;margin-bottom:16px;display:block}
+.empty-state p{font-size:14px;line-height:1.6}
+/* USER PROFILE SCREEN */
+.user-profile-hero{background:linear-gradient(180deg,var(--card) 0%,var(--panel) 100%);padding:32px 20px 24px;text-align:center;border-bottom:1px solid var(--border)}
+.user-avatar-lg{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#8B5E00);margin:0 auto 12px;font-size:36px;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold);box-shadow:0 0 20px rgba(212,168,67,0.3)}
+.profile-menu-item{display:flex;align-items:center;gap:14px;padding:16px;background:var(--panel);border:1px solid var(--border);border-radius:var(--r);margin-bottom:10px;cursor:pointer;transition:border-color 0.2s}
+.profile-menu-item:hover{border-color:var(--gold)}
+.pmi-icon{font-size:20px;width:36px;height:36px;background:var(--card);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.pmi-info{flex:1}
+.pmi-title{font-size:14px;font-weight:600}
+.pmi-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.pmi-arrow{color:var(--muted);font-size:16px}
+/* PROMO BANNER */
+.promo-banner{background:linear-gradient(135deg,rgba(167,139,250,0.2),rgba(212,168,67,0.1));border:1px solid rgba(167,139,250,0.3);border-radius:var(--r);padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px}
+.promo-text{flex:1}
+.promo-title{font-size:13px;font-weight:600;color:var(--purple)}
+.promo-desc{font-size:11px;color:var(--muted);margin-top:2px}
+.promo-btn{background:var(--purple);color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:'Outfit',sans-serif}
+/* WAITLIST */
+.waitlist-modal .modal-sheet{text-align:center}
+/* CONNECTING SCREEN REVAMP */
+.connecting-hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;background:radial-gradient(ellipse at 50% 30%,rgba(78,203,160,0.08) 0%,transparent 60%);text-align:center}
+.conn-ripple{width:120px;height:120px;border-radius:50%;background:var(--card);font-size:56px;display:flex;align-items:center;justify-content:center;margin-bottom:32px;position:relative}
+.conn-ripple::before,.conn-ripple::after{content:'';position:absolute;border-radius:50%;border:2px solid rgba(78,203,160,0.3);animation:ripple 2s ease-out infinite}
+.conn-ripple::before{width:140px;height:140px}
+.conn-ripple::after{width:170px;height:170px;animation-delay:0.5s}
+@keyframes ripple{0%{transform:scale(0.8);opacity:1}100%{transform:scale(1.2);opacity:0}}
+/* KUNDALI CHART */
+.kundali-chart{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:16px;text-align:center}
+.k-chart-title{font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--gold);margin-bottom:12px}
+.k-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;width:100%;aspect-ratio:1;max-width:280px;margin:0 auto}
+.k-cell{background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--muted);padding:4px;text-align:center;line-height:1.2;aspect-ratio:1}
+.k-cell.highlight{background:rgba(212,168,67,0.1);color:var(--gold-light);font-weight:600}
+.k-cell.center-hide{background:transparent;border:none}
+/* NOTIFICATION DOT */
+.notif-dot{width:8px;height:8px;background:var(--red);border-radius:50%;position:absolute;top:2px;right:2px;border:1px solid var(--deep)}
+</style>
+</head>
+<body>
+<div class="phone-wrap">
+  <p class="phone-label">JyotishConnect · v2 Interactive Prototype</p>
+  <div class="phone" id="app">
+    <div class="notch"><div class="notch-bar"></div></div>
+
+    <!-- ===== SCREEN: LOGIN ===== -->
+    <div class="screen active" id="screen-login">
+      <div class="screen-body" style="padding-top:0">
+        <div class="splash-hero">
+          <div class="splash-mandala">
+            <div class="mandala-ring"></div><div class="mandala-ring"></div><div class="mandala-ring"></div>
+            <div class="mandala-center">☉</div>
+          </div>
+          <div class="app-name">JyotishConnect</div>
+          <div class="app-tagline">Vedic Astrology · Voice Consulting</div>
+        </div>
+        <div style="padding:0 24px">
+          <h2 style="margin-bottom:6px">Enter your mobile number</h2>
+          <p class="muted" style="margin-bottom:24px">We'll send a verification code via SMS</p>
+          <div class="input-group">
+            <div class="input-label">Mobile Number</div>
+            <div class="phone-input-row">
+              <div class="phone-prefix">🇮🇳 <span>+91</span></div>
+              <input type="tel" id="phone-input" placeholder="98765 43210" maxlength="10">
+            </div>
+          </div>
+          <button class="btn-primary" onclick="goToOTP()">Get OTP →</button>
+          <p class="muted" style="text-align:center;margin-top:14px;font-size:12px">By continuing, you agree to our Terms & Privacy Policy</p>
+          <div style="margin-top:20px;text-align:center">
+            <p style="font-size:11px;color:var(--muted)">Are you an astrologer? <span style="color:var(--gold);cursor:pointer" onclick="showToast('Astrologer app coming soon!')">Sign up here →</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SCREEN: OTP ===== -->
+    <div class="screen" id="screen-otp">
+      <div class="topbar">
+        <div class="back-btn" onclick="goTo('login')">←</div>
+        <div class="topbar-title">Verify OTP</div>
+      </div>
+      <div class="screen-body">
+        <p style="margin-bottom:8px;color:var(--muted);font-size:14px">Code sent to <strong style="color:var(--text)" id="otp-phone-display">+91 98765 43210</strong></p>
+        <p style="margin-bottom:28px;font-size:12px;color:var(--gold)">Demo: use code <strong>123456</strong></p>
+        <div class="otp-row" id="otp-boxes">
+          <input class="otp-box" maxlength="1" id="otp0" oninput="otpInput(0)" onkeydown="otpBack(event,0)">
+          <input class="otp-box" maxlength="1" id="otp1" oninput="otpInput(1)" onkeydown="otpBack(event,1)">
+          <input class="otp-box" maxlength="1" id="otp2" oninput="otpInput(2)" onkeydown="otpBack(event,2)">
+          <input class="otp-box" maxlength="1" id="otp3" oninput="otpInput(3)" onkeydown="otpBack(event,3)">
+          <input class="otp-box" maxlength="1" id="otp4" oninput="otpInput(4)" onkeydown="otpBack(event,4)">
+          <input class="otp-box" maxlength="1" id="otp5" oninput="otpInput(5)" onkeydown="otpBack(event,5)">
+        </div>
+        <div style="margin-top:28px">
+          <button class="btn-primary" onclick="verifyOTP()">Verify & Continue</button>
+          <button class="btn-ghost" style="margin-top:10px" onclick="showToast('OTP resent!')">Resend OTP</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SCREEN: KUNDALI SETUP ===== -->
+    <div class="screen" id="screen-kundali">
+      <div class="topbar"><div class="topbar-title">Your Kundali</div></div>
+      <div class="steps">
+        <div class="step-dot done"></div><div class="step-dot active"></div>
+        <div class="step-dot"></div><div class="step-dot"></div><div class="step-dot"></div>
+      </div>
+      <div class="screen-body">
+        <h2 style="margin-bottom:4px">Birth Details</h2>
+        <p class="muted" style="margin-bottom:20px">Generates your personalised Kundali for consultations</p>
+        <div class="input-group">
+          <div class="input-label">Full Name</div>
+          <input type="text" id="user-name" placeholder="e.g. Vishal Sharma">
+        </div>
+        <div class="input-group">
+          <div class="input-label">Date of Birth</div>
+          <input type="date" id="user-dob" value="1985-05-14">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="input-group">
+            <div class="input-label">Birth Time</div>
+            <input type="time" id="user-time" value="14:35">
+          </div>
+          <div class="input-group">
+            <div class="input-label">Language</div>
+            <select id="user-lang">
+              <option>Hindi</option><option selected>English</option><option>Tamil</option>
+              <option>Telugu</option><option>Marathi</option><option>Bengali</option>
+              <option>Kannada</option><option>Malayalam</option>
+            </select>
+          </div>
+        </div>
+        <div class="input-group">
+          <div class="input-label">Birth Place</div>
+          <input type="text" id="user-place" placeholder="City, State" value="Pune, Maharashtra">
+        </div>
+        <div style="margin-top:8px;margin-bottom:24px">
+          <div class="input-label" style="margin-bottom:10px">Life concerns (up to 3)</div>
+          <div class="concern-grid">
+            <div class="concern-tag" onclick="toggleConcern(this)"><span class="icon">💍</span><span class="name">Marriage</span></div>
+            <div class="concern-tag selected" onclick="toggleConcern(this)"><span class="icon">💼</span><span class="name">Career</span></div>
+            <div class="concern-tag" onclick="toggleConcern(this)"><span class="icon">💰</span><span class="name">Finance</span></div>
+            <div class="concern-tag" onclick="toggleConcern(this)"><span class="icon">🏥</span><span class="name">Health</span></div>
+            <div class="concern-tag" onclick="toggleConcern(this)"><span class="icon">👨‍👩‍👧</span><span class="name">Family</span></div>
+            <div class="concern-tag" onclick="toggleConcern(this)"><span class="icon">🕉️</span><span class="name">Spiritual</span></div>
+          </div>
+        </div>
+        <button class="btn-primary" onclick="generateKundali()">Generate My Kundali ✦</button>
+      </div>
+    </div>
+
+    <!-- ===== SCREEN: HOME ===== -->
+    <div class="screen" id="screen-home">
+      <div class="topbar">
+        <div class="topbar-title">JyotishConnect</div>
+        <div class="wallet-chip" onclick="showWalletModal()">₹ <span id="wallet-display">349</span></div>
+      </div>
+      <div class="screen-body">
+        <div class="cosmic-bg"></div>
+        <!-- Promo Banner -->
+        <div class="promo-banner">
+          <div style="font-size:28px">🎁</div>
+          <div class="promo-text">
+            <div class="promo-title">First call FREE (3 min)</div>
+            <div class="promo-desc">New users get ₹99 free credits on signup</div>
+          </div>
+          <button class="promo-btn" onclick="showToast('Credits applied! ₹99 added.')">Claim</button>
+        </div>
+        <!-- Rashi Banner -->
+        <div class="rashi-banner">
+          <div class="rashi-icon">♑</div>
+          <div class="rashi-info">
+            <h3>Makara Rashi · Rohini Nakshatra</h3>
+            <p id="home-daily-tip">Today: Auspicious for new ventures. Moon in Taurus.</p>
+          </div>
+        </div>
+        <!-- Muhurat -->
+        <div class="section-head">Today's Shubh Muhurat</div>
+        <div class="muhurat-row">
+          <div class="muhurat-chip"><div class="time">06:32–07:48</div><div class="act">Puja & meditation</div></div>
+          <div class="muhurat-chip"><div class="time">10:15–11:30</div><div class="act">Business dealings</div></div>
+          <div class="muhurat-chip"><div class="time">15:00–16:00</div><div class="act">Travel & movement</div></div>
+        </div>
+        <!-- Horoscope Strip -->
+        <div class="section-head">Daily Horoscope</div>
+        <div class="horoscope-strip" id="horoscope-strip"></div>
+        <!-- Recommended -->
+        <div class="section-head">Recommended for You</div>
+        <div id="recommended-list"></div>
+        <button class="btn-ghost" onclick="goTo('directory')" style="margin-top:8px">View All Astrologers →</button>
+      </div>
+      <div class="bottom-nav">
+        <div class="nav-item active" onclick="navTo('home')"><div class="nav-icon">🏠</div><div class="nav-label">Home</div></div>
+        <div class="nav-item" onclick="navTo('directory')"><div class="nav-icon">🔍</div><div class="nav-label">Explore</div></div>
+        <div class="nav-item" onclick="navTo('calls')" style="position:relative"><div class="nav-icon">📞</div><div class="nav-label">My Calls</div><div class="notif-dot" id="calls-notif-dot"></div></div>
+        <div class="nav-item" onclick="navTo('account')"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+      </div>
+    </div>
+
+    <!-- ===== SCREEN: DIRECTORY ===== -->
+    <div class="screen" id="screen-directory">
+      <div class="topbar">
+        <div class="topbar-title">Astrologers</div>
+        <div class="wallet-chip" onclick="showWalletModal()">₹ <span id="wallet-display2">349</span></div>
+      </div>
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input type="search" id="search-input" placeholder="Search by name, specialisation..." oninput="searchAstrologers(this.value)">
+      </div>
+      <div class="filter-scroll">
+        <div class="filter-chip active" onclick="setFilter(this,'All')">All</div>
+        <div class="filter-chip" onclick="setFilter(this,'Online')">🟢 Online</div>
+        <div class="filter-chip" onclick="setFilter(this,'Career')">Career</div>
+        <div class="filter-chip" onclick="setFilter(this,'Marriage')">Marriage</div>
+        <div class="filter-chip" onclick="setFilter(this,'Health')">Health</div>
+        <div class="filter-chip" onclick="setFilter(this,'KP')">KP System</div>
+        <div class="filter-chip" onclick="setFilter(this,'Vastu')">Vastu</div>
+      </div>
+      <div class="screen-body" style="padding-top:0">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <span class="muted" id="directory-count" style="font-size:12px">6 astrologers</span>
+          <select style="width:auto;padding:6px 10px;font-size:12px;background:var(--panel);border-color:var(--border)" onchange="sortDirectory(this.value)">
+            <option value="relevance">Sort: Relevance</option>
+            <option value="rating">Highest Rated</option>
+            <option value="price-low">Price: Low to High</option>
+            <option value="price-high">Price: High to Low</option>
+            <option value="calls">Most Popular</option>
+          </select>
+        </div>
+        <div id="directory-list"></div>
+      </div>
+      <div class="bottom-nav">
+        <div class="nav-item" onclick="navTo('home')"><div class="nav-icon">🏠</div><div class="nav-label">Home</div></div>
+        <div class="nav-item active" onclick="navTo('directory')"><div class="nav-icon">🔍</div><div class="nav-label">Explore</div></div>
+        <div class="nav-item" onclick="navTo('calls')" style="position:relative"><div class="nav-icon">📞</div><div class="nav-label">My Calls</div><div class="notif-dot" id="calls-notif-dot2"></div></div>
+        <div class="nav-item" onclick="navTo('account')"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+      </div>
+    </div>
+
+    <!-- ===== SCREEN: ASTROLOGER PROFILE ===== -->
+    <div class="screen" id="screen-profile">
+      <div class="topbar">
+        <div class="back-btn" onclick="goTo(state.prevScreen||'directory')">←</div>
+        <div class="topbar-title" id="profile-title">Profile</div>
+        <div class="wallet-chip" onclick="showWalletModal()">₹ <span id="wallet-display3">349</span></div>
+      </div>
+      <div class="screen-body" style="padding:0 0 24px">
+        <div class="profile-hero">
+          <div class="profile-avatar-lg" id="profile-avatar">🧘</div>
+          <div style="font-size:20px;font-weight:700;font-family:'Cormorant Garamond',serif" id="profile-name"></div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px" id="profile-spec"></div>
+          <div class="verified-badge">✓ Verified Astrologer</div>
+          <div class="stats-row">
+            <div class="stat-box"><div class="stat-val" id="p-rating">4.8</div><div class="stat-lbl">Rating</div></div>
+            <div class="stat-box"><div class="stat-val" id="p-calls">2.4K</div><div class="stat-lbl">Consultations</div></div>
+            <div class="stat-box"><div class="stat-val" id="p-exp">18yr</div><div class="stat-lbl">Experience</div></div>
+            <div class="stat-box"><div class="stat-val" id="p-rate">₹35</div><div class="stat-lbl">per min</div></div>
+          </div>
+        </div>
+        <div style="padding:0 20px">
+          <div class="card card-gold" style="margin-bottom:16px" id="wallet-warning">
+            <p style="font-size:13px;color:var(--gold)">⚠ Low balance. Top up to start a call.</p>
+            <button class="btn-primary" style="margin-top:10px;padding:10px" onclick="showWalletModal()">Top Up Wallet</button>
+          </div>
+          <div class="section-head">About</div>
+          <p style="font-size:13px;line-height:1.7;color:var(--text);margin-bottom:16px" id="profile-bio"></p>
+          <div class="section-head">Languages</div>
+          <div class="lang-chips" id="profile-langs" style="margin-bottom:16px"></div>
+          <div class="section-head">Specialisations</div>
+          <div class="lang-chips" id="profile-tags" style="margin-bottom:16px"></div>
+          <!-- Kundali Chart Preview -->
+          <div class="kundali-chart">
+            <div class="k-chart-title">✦ North Indian Kundali Chart</div>
+            <div class="k-grid" id="kundali-mini"></div>
+            <p style="font-size:10px;color:var(--muted);margin-top:8px">Shared with astrologer when call begins</p>
+          </div>
+          <div class="section-head">Recent Reviews</div>
+          <div id="profile-reviews"></div>
+          <div style="height:80px"></div>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:0;left:0;right:0;padding:16px 20px;background:linear-gradient(transparent,var(--deep) 30%);padding-top:32px">
+        <button class="btn-primary" id="call-now-btn" onclick="initiateCall()">📞 Call Now</button>
+      </div>
+    </div>
+
+    <!-- ===== SCREEN: CONNECTING ===== -->
+    <div class="screen" id="screen-connecting">
+      <div class="connecting-hero">
+        <div class="conn-ripple" id="conn-avatar">🧘</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;margin-bottom:8px" id="conn-name">Connecting...</div>
+        <p class="muted" style="font-size:13px;margin-bottom:24px">Please wait while we connect you</p>
+        <div class="connecting-dots">
+          <span>●</span><span>●</span><span>●</span>
+        </div>
+        <p style="font-size:11px;color:var(--muted);margin-top:32px">Auto-routes to next available astrologer if no answer</p>
+      </div>
+      <div style="padding:0 24px 32px">
+        <button class="btn-ghost" onclick="cancelConnection()">Cancel</button>
+      </div>
+    </div>
+
+    <!-- ===== SCREEN: LIVE CALL ===== -->
+    <div class="screen" id="screen-call">
+      <div class="topbar" style="background:rgba(8,6,24,0.6);flex-shrink:0">
+        <div style="flex:1">
+          <div style="font-size:11px;color:var(--green);letter-spacing:1px">● LIVE CALL</div>
+          <div style="font-size:12px;color:var(--muted)" id="call-cost-bar">Cost: ₹0.00 · Wallet: ₹349</div>
+        </div>
+        <div class="wallet-chip">₹ <span id="wallet-display4">349</span></div>
+      </div>
+      <div class="call-hero">
+        <div class="call-avatar" id="call-avatar-main">🧘</div>
+        <div class="call-name" id="call-astro-name">Pt. Ramesh Sharma</div>
+        <p class="muted" style="font-size:12px" id="call-concern-tag">Career consultation</p>
+        <div class="call-timer" id="call-timer">0:00</div>
+        <div class="call-cost" id="call-cost-display">₹0.00 deducted</div>
+        <div class="call-wallet" id="call-wallet-display">Balance: ₹349.00</div>
+      </div>
+      <div class="call-controls">
+        <button class="ctrl-btn mute-btn" id="mute-btn" onclick="toggleMute()">🎤</button>
+        <button class="ctrl-btn end-btn" onclick="endCall()">📵</button>
+        <button class="ctrl-btn speaker-btn" id="speaker-btn" onclick="toggleSpeaker()">🔊</button>
+      </div>
+    </div>
+
+    <!-- ===== SCREEN: RATING ===== -->
+    <div class="screen" id="screen-rating">
+      <div class="screen-body" style="padding-top:0">
+        <div class="rating-hero">
+          <div class="rating-circle">⭐</div>
+          <h2>How was your consultation?</h2>
+          <p class="muted" style="margin-top:6px;font-size:13px">with <span id="rating-astro-name" style="color:var(--text)"></span></p>
+          <div class="card" style="margin-top:16px;text-align:left">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+              <span class="muted" style="font-size:12px">Call duration</span>
+              <span id="rating-duration" style="font-size:12px;font-weight:600"></span>
+            </div>
+            <div style="display:flex;justify-content:space-between">
+              <span class="muted" style="font-size:12px">Amount charged</span>
+              <span id="rating-amount" style="font-size:12px;font-weight:600;color:var(--gold)"></span>
+            </div>
+          </div>
+          <div class="star-row" id="star-row">
+            <span class="star" onclick="rateStar(1)">★</span><span class="star" onclick="rateStar(2)">★</span>
+            <span class="star" onclick="rateStar(3)">★</span><span class="star" onclick="rateStar(4)">★</span>
+            <span class="star" onclick="rateStar(5)">★</span>
+          </div>
+          <div id="rating-label" style="font-size:13px;color:var(--muted);margin-bottom:16px;min-height:20px"></div>
+        </div>
+        <div style="padding:0 20px 24px">
+          <textarea rows="3" placeholder="Share your experience (optional)..."></textarea>
+          <button class="btn-primary" onclick="submitRating()">Submit Rating</button>
+          <button class="btn-ghost" style="margin-top:10px" onclick="submitRating()">Skip</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SCREEN: MY CALLS ===== -->
+    <div class="screen" id="screen-calls">
+      <div class="topbar">
+        <div class="topbar-title">My Calls</div>
+        <div class="wallet-chip" onclick="showWalletModal()">₹ <span id="wallet-display5">349</span></div>
+      </div>
+      <div class="screen-body">
+        <!-- Stats row -->
+        <div class="stats-row" style="margin-bottom:20px">
+          <div class="stat-box"><div class="stat-val" id="stats-total-calls">0</div><div class="stat-lbl">Total Calls</div></div>
+          <div class="stat-box"><div class="stat-val" id="stats-total-spent">₹0</div><div class="stat-lbl">Total Spent</div></div>
+          <div class="stat-box"><div class="stat-val" id="stats-avg-dur">0m</div><div class="stat-lbl">Avg. Duration</div></div>
+        </div>
+        <div id="calls-history-list">
+          <div class="empty-state">
+            <span class="empty-icon">📞</span>
+            <p>No calls yet. Connect with an astrologer to get started!</p>
+          </div>
+        </div>
+      </div>
+      <div class="bottom-nav">
+        <div class="nav-item" onclick="navTo('home')"><div class="nav-icon">🏠</div><div class="nav-label">Home</div></div>
+        <div class="nav-item" onclick="navTo('directory')"><div class="nav-icon">🔍</div><div class="nav-label">Explore</div></div>
+        <div class="nav-item active" onclick="navTo('calls')"><div class="nav-icon">📞</div><div class="nav-label">My Calls</div></div>
+        <div class="nav-item" onclick="navTo('account')"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+      </div>
+    </div>
+
+    <!-- ===== SCREEN: ACCOUNT / USER PROFILE ===== -->
+    <div class="screen" id="screen-account">
+      <div class="user-profile-hero">
+        <div class="user-avatar-lg">🧑</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700" id="account-name">User</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px" id="account-phone">+91 98765 43210</div>
+        <div style="display:flex;gap:16px;justify-content:center;margin-top:16px">
+          <div style="text-align:center">
+            <div style="font-size:18px;font-weight:700;color:var(--gold);font-family:'Cormorant Garamond',serif" id="acct-calls">0</div>
+            <div style="font-size:10px;color:var(--muted)">Calls</div>
+          </div>
+          <div style="width:1px;background:var(--border)"></div>
+          <div style="text-align:center">
+            <div style="font-size:18px;font-weight:700;color:var(--gold);font-family:'Cormorant Garamond',serif" id="acct-balance">₹349</div>
+            <div style="font-size:10px;color:var(--muted)">Balance</div>
+          </div>
+          <div style="width:1px;background:var(--border)"></div>
+          <div style="text-align:center">
+            <div style="font-size:18px;font-weight:700;color:var(--gold);font-family:'Cormorant Garamond',serif">♑</div>
+            <div style="font-size:10px;color:var(--muted)">Rashi</div>
+          </div>
+        </div>
+      </div>
+      <div class="screen-body">
+        <!-- Kundali Card -->
+        <div class="card card-gold" style="margin-bottom:16px" onclick="goTo('kundali')">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="font-size:28px">🪐</div>
+            <div>
+              <div style="font-size:14px;font-weight:600">My Kundali</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px" id="acct-kundali-info">Makara Rashi · Rohini Nakshatra · Lagna: Karka</div>
+            </div>
+            <div style="color:var(--muted);margin-left:auto">→</div>
+          </div>
+        </div>
+        <!-- Wallet Card -->
+        <div class="card card-gold" style="margin-bottom:16px" onclick="showWalletModal()">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="font-size:28px">💰</div>
+            <div>
+              <div style="font-size:14px;font-weight:600">Wallet Balance</div>
+              <div style="font-size:18px;color:var(--gold);font-weight:700;font-family:'Cormorant Garamond',serif">₹<span id="acct-wallet">349</span></div>
+            </div>
+            <button class="promo-btn" style="margin-left:auto" onclick="event.stopPropagation();showWalletModal()">Top Up</button>
+          </div>
+        </div>
+        <!-- Menu Items -->
+        <div class="profile-menu-item" onclick="goTo('calls')">
+          <div class="pmi-icon">📞</div>
+          <div class="pmi-info"><div class="pmi-title">Call History</div><div class="pmi-sub">View all your past consultations</div></div>
+          <div class="pmi-arrow">›</div>
+        </div>
+        <div class="profile-menu-item" onclick="showToast('Transaction history coming soon')">
+          <div class="pmi-icon">💳</div>
+          <div class="pmi-info"><div class="pmi-title">Transaction History</div><div class="pmi-sub">Wallet top-ups and call charges</div></div>
+          <div class="pmi-arrow">›</div>
+        </div>
+        <div class="profile-menu-item" onclick="showToast('Favourites coming soon')">
+          <div class="pmi-icon">⭐</div>
+          <div class="pmi-info"><div class="pmi-title">Favourite Astrologers</div><div class="pmi-sub">Get notified when they go online</div></div>
+          <div class="pmi-arrow">›</div>
+        </div>
+        <div class="profile-menu-item" onclick="showToast('Report purchase coming soon')">
+          <div class="pmi-icon">📄</div>
+          <div class="pmi-info"><div class="pmi-title">Purchase Reports</div><div class="pmi-sub">Kundali PDF · Yearly forecast · Matching</div></div>
+          <div class="pmi-arrow">›</div>
+        </div>
+        <div class="profile-menu-item" onclick="showToast('Settings coming soon')">
+          <div class="pmi-icon">⚙️</div>
+          <div class="pmi-info"><div class="pmi-title">Settings</div><div class="pmi-sub">Notifications, language, privacy</div></div>
+          <div class="pmi-arrow">›</div>
+        </div>
+        <div class="profile-menu-item" onclick="showToast('Support: support@jyotishconnect.in')">
+          <div class="pmi-icon">🆘</div>
+          <div class="pmi-info"><div class="pmi-title">Help & Support</div><div class="pmi-sub">Chat, email, or call us</div></div>
+          <div class="pmi-arrow">›</div>
+        </div>
+        <div style="margin-top:8px">
+          <button class="btn-ghost" onclick="showToast('Logged out successfully')">Log Out</button>
+        </div>
+        <p style="text-align:center;font-size:10px;color:var(--muted);margin-top:16px">JyotishConnect v2.0 · © 2026</p>
+      </div>
+      <div class="bottom-nav">
+        <div class="nav-item" onclick="navTo('home')"><div class="nav-icon">🏠</div><div class="nav-label">Home</div></div>
+        <div class="nav-item" onclick="navTo('directory')"><div class="nav-icon">🔍</div><div class="nav-label">Explore</div></div>
+        <div class="nav-item" onclick="navTo('calls')"><div class="nav-icon">📞</div><div class="nav-label">My Calls</div></div>
+        <div class="nav-item active" onclick="navTo('account')"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+      </div>
+    </div>
+
+    <!-- ===== WALLET MODAL ===== -->
+    <div class="modal-overlay hidden" id="wallet-modal" onclick="closeModal(event)">
+      <div class="modal-sheet">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="modal-title">Top Up Wallet</div>
+          <div onclick="closeWalletModal()" style="cursor:pointer;color:var(--muted);font-size:20px">✕</div>
+        </div>
+        <p class="muted" style="font-size:13px;margin-bottom:4px">Current balance: <strong style="color:var(--gold)">₹<span id="modal-balance">349</span></strong></p>
+        <div class="recharge-grid">
+          <div class="recharge-option" onclick="selectRecharge(this,99)">
+            <div class="recharge-amount">₹99</div>
+            <div class="recharge-desc">~5 min talk time</div>
+          </div>
+          <div class="recharge-option selected" onclick="selectRecharge(this,199)">
+            <div class="recharge-amount">₹199</div>
+            <div class="recharge-desc">~11 min</div>
+            <div class="recharge-bonus">+ ₹20 bonus</div>
+          </div>
+          <div class="recharge-option" onclick="selectRecharge(this,499)">
+            <div class="recharge-amount">₹499</div>
+            <div class="recharge-desc">~28 min</div>
+            <div class="recharge-bonus">+ ₹60 bonus</div>
+          </div>
+          <div class="recharge-option" onclick="selectRecharge(this,999)">
+            <div class="recharge-amount">₹999</div>
+            <div class="recharge-desc">~57 min</div>
+            <div class="recharge-bonus">+ ₹150 bonus</div>
+          </div>
+        </div>
+        <div style="margin-bottom:12px">
+          <div class="input-label">Custom amount (min ₹50)</div>
+          <input type="text" id="custom-amount" placeholder="Enter amount" oninput="setCustomAmount(this.value)">
+        </div>
+        <button class="btn-primary" id="pay-btn" onclick="initiatePayment()">Pay ₹<span id="pay-amount">199</span> via Razorpay</button>
+        <button class="btn-ghost" style="margin-top:10px" onclick="closeWalletModal()">Cancel</button>
+        <p style="font-size:10px;color:var(--muted);text-align:center;margin-top:10px">Secured by Razorpay · UPI · Cards · Net Banking</p>
+      </div>
+    </div>
+
+    <!-- ===== WAITLIST MODAL ===== -->
+    <div class="modal-overlay hidden waitlist-modal" id="waitlist-modal" onclick="closeWaitlistModal(event)">
+      <div class="modal-sheet" style="text-align:center">
+        <div style="font-size:48px;margin-bottom:12px">⏳</div>
+        <div class="modal-title" id="waitlist-astro-name">Astrologer is busy</div>
+        <p class="muted" style="font-size:13px;margin-bottom:20px">Currently on another call. You'll be notified when they're free.</p>
+        <div style="background:var(--panel);border-radius:var(--r);padding:16px;margin-bottom:16px">
+          <div style="font-size:12px;color:var(--muted)">Estimated wait time</div>
+          <div style="font-size:24px;font-weight:700;color:var(--orange);font-family:'Cormorant Garamond',serif">~8 min</div>
+        </div>
+        <button class="btn-primary" onclick="joinWaitlist()">🔔 Join Waitlist</button>
+        <button class="btn-ghost" style="margin-top:10px" onclick="closeWaitlistModal()">Try Another Astrologer</button>
+      </div>
+    </div>
+
+  </div><!-- /.phone -->
+</div>
+
+<script>
+// ════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════
+const CONFIG = {
+  RAZORPAY_KEY: 'rzp_live_ScQ6L0ZPRdL1wK',
+  AGORA_APP_ID: '8593844bb7454075b6f493b2d81ac34b',
+};
+
+// ════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════
+const state = {
+  phone: '',
+  userName: '',
+  wallet: 349,
+  currentAstro: null,
+  callSeconds: 0,
+  callInterval: null,
+  callCost: 0,
+  selectedRecharge: 199,
+  selectedRating: 0,
+  muted: false,
+  speaker: true,
+  selectedFilter: 'All',
+  prevScreen: 'directory',
+  callHistory: [],
+  agoraClient: null,
+  agoraJoined: false,
+};
+
+// ════════════════════════════════════════
+// DATA
+// ════════════════════════════════════════
+const ASTROLOGERS = [
+  { id:1, emoji:'🧘', name:'Pt. Ramesh Sharma', spec:'Vedic · KP · Lal Kitab', tags:['Career','Marriage','KP'], langs:['Hindi','English'], rating:4.8, calls:'2.4K', exp:'18yr', rate:35, status:'online', bio:'Specialised in Vedic Kundali analysis, KP astrology for precise predictions. 2400+ clients across 12 states. Known for detailed Dasha analysis and career guidance.', reviews:[{u:'Priya S.',r:5,t:'Accurate predictions about my job change. Highly recommend!'},{u:'Rahul M.',r:5,t:'Very detailed and patient. Explained everything clearly.'}] },
+  { id:2, emoji:'🌙', name:'Jyotika Devi', spec:'Nadi · Prashna · Muhurat', tags:['Marriage','Spiritual','Muhurat'], langs:['Tamil','English'], rating:4.9, calls:'3.1K', exp:'22yr', rate:75, status:'online', bio:'Expert in Nadi astrology and marriage compatibility. 22 years of practice in the Tamil tradition. Highly accurate in timing major life events.', reviews:[{u:'Ananya R.',r:5,t:'She predicted my marriage timing to the exact month!'},{u:'Vikram P.',r:5,t:'Best astrologer I have consulted. Very authentic.'}] },
+  { id:3, emoji:'☿', name:'Dr. Ankit Patel', spec:'Vastu · Numerology · KP', tags:['Finance','Business','Vastu'], langs:['Gujarati','Hindi'], rating:4.6, calls:'1.2K', exp:'9yr', rate:50, status:'busy', bio:'Combines Vastu Shastra and numerology for business success. Has served clients across Gujarat, Maharashtra and UAE. MBA + Jyotish Visharad.', reviews:[{u:'Mehul S.',r:4,t:'Good insights on Vastu for my office. Practical advice.'},{u:'Pooja K.',r:5,t:'Numerology reading was spot on!'}] },
+  { id:4, emoji:'♄', name:'Swami Krishnanand', spec:'Vedic · Dasha · Spirituality', tags:['Spiritual','Health','Career'], langs:['Hindi','Sanskrit'], rating:4.7, calls:'856', exp:'30yr', rate:120, status:'online', bio:'30 years of deep Vedic study. Dasha-based predictions with 85%+ accuracy. Retired professor of Sanskrit. Specialises in spiritual guidance and health astrology.', reviews:[{u:'Deepak N.',r:5,t:'Swamiji\'s knowledge is unparalleled. Life-changing session.'},{u:'Meera T.',r:5,t:'Accurate health predictions. Changed my perspective.'}] },
+  { id:5, emoji:'🪐', name:'Meena Iyer', spec:'KP · Lagna · Navamsa', tags:['Marriage','Family','Health'], langs:['Malayalam','Tamil','English'], rating:4.5, calls:'640', exp:'7yr', rate:28, status:'online', bio:'Rising star in KP astrology. Specialises in marriage timing and family matters. Clear, practical approach loved by young professionals.', reviews:[{u:'Sanjay R.',r:4,t:'Good session. Clear explanations. Will consult again.'},{u:'Divya M.',r:5,t:'Perfect marriage timing prediction!'}] },
+  { id:6, emoji:'🌟', name:'Rajiv Kapoor', spec:'Vedic · Finance · Career', tags:['Career','Finance','Business'], langs:['Hindi','Punjabi'], rating:4.3, calls:'420', exp:'5yr', rate:20, status:'offline', bio:'Modern astrologer blending Vedic knowledge with data-driven analysis. Specialises in career transitions, stock market timing, and financial astrology.', reviews:[{u:'Amit G.',r:4,t:'Helpful for career clarity. Very affordable too.'},{u:'Ritu S.',r:4,t:'Good predictions about my business.'}] },
+];
+
+const RASHIS = [
+  {sign:'♈',name:'Mesha'},{sign:'♉',name:'Vrishabha'},{sign:'♊',name:'Mithuna'},
+  {sign:'♋',name:'Karka'},{sign:'♌',name:'Simha'},{sign:'♍',name:'Kanya'},
+  {sign:'♎',name:'Tula'},{sign:'♏',name:'Vrishchika'},{sign:'♐',name:'Dhanu'},
+  {sign:'♑',name:'Makara'},{sign:'♒',name:'Kumbha'},{sign:'♓',name:'Meena'},
+];
+
+const KUNDALI_CELLS = [
+  {planets:'',label:'12'},null,{planets:'',label:'2'},{planets:'',label:'3'},
+  {planets:'Sun',label:'11'},{center:true},{center:true},{planets:'Ven',label:'4'},
+  {planets:'Jup',label:'10'},{center:true},{center:true},{planets:'Sat',label:'5'},
+  {planets:'Moon',label:'9'},null,{planets:'Mar',label:'7'},{planets:'Mer',label:'6'},
+];
+
+const RATING_LABELS = ['','😕 Poor','😐 Fair','🙂 Good','😊 Very Good','🤩 Excellent!'];
+
+// ════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════
+function goTo(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById('screen-' + name);
+  if (el) el.classList.add('active');
+  syncWalletDisplay();
+}
+
+function navTo(name) {
+  document.querySelectorAll('.bottom-nav .nav-item').forEach(n => n.classList.remove('active'));
+  goTo(name);
+  // Update notif dots
+  document.querySelectorAll('[id^="calls-notif-dot"]').forEach(d => {
+    d.style.display = state.callHistory.length > 0 ? 'block' : 'none';
+  });
+  // Sync account screen
+  if (name === 'account') {
+    document.getElementById('account-name').textContent = state.userName || 'User';
+    document.getElementById('account-phone').textContent = '+91 ' + (state.phone || '98765 43210');
+    document.getElementById('acct-calls').textContent = state.callHistory.length;
+    document.getElementById('acct-balance').textContent = '₹' + Math.round(state.wallet);
+    document.getElementById('acct-wallet').textContent = Math.round(state.wallet);
+    updateCallStats();
+  }
+  if (name === 'calls') {
+    renderCallHistory();
+    updateCallStats();
+  }
+}
+
+function syncWalletDisplay() {
+  ['wallet-display','wallet-display2','wallet-display3','wallet-display4','wallet-display5','modal-balance','acct-wallet'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = typeof state.wallet === 'number' ? Math.round(state.wallet) : state.wallet;
+  });
+}
+
+// ════════════════════════════════════════
+// LOGIN / OTP
+// ════════════════════════════════════════
+function goToOTP() {
+  const phone = document.getElementById('phone-input').value.trim();
+  if (phone.length < 10) { showToast('⚠ Enter a valid 10-digit number'); return; }
+  state.phone = phone;
+  document.getElementById('otp-phone-display').textContent = '+91 ' + phone;
+  goTo('otp');
+  setTimeout(() => document.getElementById('otp0').focus(), 100);
+}
+
+function otpInput(i) {
+  const val = document.getElementById('otp'+i).value;
+  if (val && i < 5) document.getElementById('otp'+(i+1)).focus();
+  // Auto-verify if all filled
+  let code = '';
+  for (let j=0;j<6;j++) code += document.getElementById('otp'+j).value;
+  if (code.length === 6) setTimeout(verifyOTP, 200);
+}
+
+function otpBack(e, i) {
+  if (e.key === 'Backspace' && !e.target.value && i > 0) {
+    document.getElementById('otp'+(i-1)).focus();
+  }
+}
+
+function verifyOTP() {
+  let code = '';
+  for (let i = 0; i < 6; i++) code += document.getElementById('otp'+i).value;
+  if (code === '123456') {
+    goTo('kundali');
+  } else {
+    showToast('✗ Invalid OTP. Demo: use 123456');
+    document.querySelectorAll('.otp-box').forEach(b => { b.value=''; b.style.borderColor='var(--red)'; });
+    setTimeout(() => document.querySelectorAll('.otp-box').forEach(b => b.style.borderColor=''), 1500);
+    document.getElementById('otp0').focus();
+  }
+}
+
+// ════════════════════════════════════════
+// KUNDALI
+// ════════════════════════════════════════
+function toggleConcern(el) {
+  const selected = document.querySelectorAll('.concern-tag.selected');
+  if (el.classList.contains('selected')) { el.classList.remove('selected'); return; }
+  if (selected.length >= 3) { showToast('Max 3 concerns'); return; }
+  el.classList.add('selected');
+}
+
+function generateKundali() {
+  const name = document.getElementById('user-name').value.trim();
+  if (!name) { showToast('⚠ Please enter your name'); return; }
+  state.userName = name;
+  showToast('✦ Kundali generated: Makara Rashi · Rohini Nakshatra');
+  renderDirectoryAndHome();
+  renderHoroscopeStrip();
+  renderKundaliMini();
+  setTimeout(() => goTo('home'), 800);
+}
+
+// ════════════════════════════════════════
+// HOME RENDER
+// ════════════════════════════════════════
+function renderHoroscopeStrip() {
+  const tips = ['Focus on finances today','Love is in the stars','Career breakthrough near','Health needs attention','Family harmony today','Auspicious day ahead','Travel brings luck','New connections today','Spiritual day ahead','Creative energy high','Business favoured','Good day for rest'];
+  document.getElementById('horoscope-strip').innerHTML = RASHIS.map((r,i) =>
+    `<div class="rashi-pill ${i===9?'mine':''}" onclick="showToast('${r.name}: ${tips[i]}')">
+      <span class="rp-sign">${r.sign}</span>
+      <span class="rp-name">${r.name}</span>
+    </div>`
+  ).join('');
+}
+
+function renderDirectoryAndHome() {
+  renderDirectory(ASTROLOGERS);
+  renderRecommended();
+}
+
+function renderRecommended() {
+  const online = ASTROLOGERS.filter(a => a.status === 'online').slice(0, 3);
+  document.getElementById('recommended-list').innerHTML = online.map(a => astroCardHTML(a)).join('');
+}
+
+function renderDirectory(list) {
+  const container = document.getElementById('directory-list');
+  if (!list.length) {
+    container.innerHTML = `<div class="empty-state"><span class="empty-icon">🔍</span><p>No astrologers found.<br>Try a different search or filter.</p></div>`;
+    document.getElementById('directory-count').textContent = '0 astrologers';
+    return;
+  }
+  container.innerHTML = list.map(a => astroCardHTML(a)).join('');
+  document.getElementById('directory-count').textContent = `${list.length} astrologer${list.length!==1?'s':''}`;
+}
+
+function astroCardHTML(a) {
+  const statusClass = a.status;
+  const btnText = a.status==='online' ? '📞 Call' : a.status==='busy' ? '⏳ Busy' : '⚫ Offline';
+  const btnClass = a.status==='online' ? '' : a.status==='busy' ? 'busy-btn' : 'offline-btn';
+  return `<div class="astro-card" onclick="openProfile(${a.id})">
+    <div class="astro-avatar">${a.emoji}<div class="status-dot ${statusClass}"></div></div>
+    <div class="astro-info">
+      <div class="astro-name">${a.name}</div>
+      <div class="astro-spec">${a.spec}</div>
+      <div class="astro-meta">
+        <span class="rating">★ ${a.rating}</span>
+        <span class="calls-count">${a.calls} calls · ${a.exp}</span>
+      </div>
+      <div class="lang-chips">${a.langs.map(l=>`<div class="lang-chip">${l}</div>`).join('')}</div>
+    </div>
+    <div class="astro-rate">
+      <div class="rate-num">₹${a.rate}</div>
+      <div class="rate-label">/min</div>
+      <button class="call-btn-sm ${btnClass}" onclick="event.stopPropagation();handleCallBtn(${a.id})">${btnText}</button>
+    </div>
+  </div>`;
+}
+
+function handleCallBtn(id) {
+  const a = ASTROLOGERS.find(x=>x.id===id);
+  if (!a) return;
+  if (a.status === 'busy') { openWaitlist(a); return; }
+  if (a.status === 'offline') { showToast('⚫ Offline — we\'ll notify you when online'); return; }
+  state.currentAstro = a;
+  state.prevScreen = 'directory';
+  initiateCall();
+}
+
+function searchAstrologers(q) {
+  if (!q.trim()) { renderDirectory(ASTROLOGERS); return; }
+  const lq = q.toLowerCase();
+  const res = ASTROLOGERS.filter(a =>
+    a.name.toLowerCase().includes(lq) ||
+    a.spec.toLowerCase().includes(lq) ||
+    a.langs.some(l=>l.toLowerCase().includes(lq)) ||
+    a.tags.some(t=>t.toLowerCase().includes(lq))
+  );
+  renderDirectory(res);
+}
+
+function setFilter(el, filter) {
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  state.selectedFilter = filter;
+  document.getElementById('search-input').value = '';
+  if (filter==='All') renderDirectory(ASTROLOGERS);
+  else if (filter==='Online') renderDirectory(ASTROLOGERS.filter(a=>a.status==='online'));
+  else renderDirectory(ASTROLOGERS.filter(a=>a.tags.includes(filter)||a.spec.includes(filter)));
+}
+
+function sortDirectory(by) {
+  let list = [...ASTROLOGERS];
+  if (by==='rating') list.sort((a,b)=>b.rating-a.rating);
+  else if (by==='price-low') list.sort((a,b)=>a.rate-b.rate);
+  else if (by==='price-high') list.sort((a,b)=>b.rate-a.rate);
+  else if (by==='calls') list.sort((a,b)=>parseFloat(b.calls)-parseFloat(a.calls));
+  renderDirectory(list);
+}
+
+// ════════════════════════════════════════
+// PROFILE
+// ════════════════════════════════════════
+function openProfile(id, from) {
+  const a = ASTROLOGERS.find(x=>x.id===id);
+  if (!a) return;
+  state.currentAstro = a;
+  state.prevScreen = from || 'directory';
+  document.getElementById('profile-title').textContent = a.name.split(' ')[0];
+  document.getElementById('profile-avatar').textContent = a.emoji;
+  document.getElementById('profile-name').textContent = a.name;
+  document.getElementById('profile-spec').textContent = a.spec;
+  document.getElementById('p-rating').textContent = a.rating;
+  document.getElementById('p-calls').textContent = a.calls;
+  document.getElementById('p-exp').textContent = a.exp;
+  document.getElementById('p-rate').textContent = '₹'+a.rate;
+  document.getElementById('profile-bio').textContent = a.bio;
+  document.getElementById('profile-langs').innerHTML = a.langs.map(l=>`<div class="lang-chip">${l}</div>`).join('');
+  document.getElementById('profile-tags').innerHTML = a.tags.map(t=>`<div class="lang-chip">${t}</div>`).join('');
+
+  const btn = document.getElementById('call-now-btn');
+  if (a.status==='online') {
+    btn.textContent = `📞 Call Now — ₹${a.rate}/min`;
+    btn.disabled = false;
+  } else if (a.status==='busy') {
+    btn.textContent = '⏳ Currently Busy – Join Waitlist';
+    btn.disabled = false;
+  } else {
+    btn.textContent = '⚫ Offline – Notify Me';
+    btn.disabled = true;
+  }
+
+  const minCost = a.rate * 3;
+  const warn = document.getElementById('wallet-warning');
+  if (state.wallet < minCost) warn.classList.remove('hidden');
+  else warn.classList.add('hidden');
+
+  // Reviews
+  document.getElementById('profile-reviews').innerHTML = (a.reviews||[]).map(r=>`
+    <div class="card" style="margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:12px;font-weight:600">${r.u}</span>
+        <span style="font-size:11px;color:var(--gold)">${'★'.repeat(r.r)}</span>
+      </div>
+      <p style="font-size:12px;color:var(--muted);line-height:1.5">${r.t}</p>
+    </div>`).join('');
+
+  renderKundaliMini();
+  goTo('profile');
+  syncWalletDisplay();
+}
+
+function renderKundaliMini() {
+  const grid = document.getElementById('kundali-mini');
+  if (!grid) return;
+  grid.innerHTML = KUNDALI_CELLS.map(c => {
+    if (!c) return `<div class="k-cell" style="background:transparent;border:none"></div>`;
+    if (c.center) return `<div class="k-cell center-hide"></div>`;
+    return `<div class="k-cell ${c.planets?'highlight':''}">${c.planets||c.label}</div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════
+// CALL FLOW
+// ════════════════════════════════════════
+function initiateCall() {
+  const a = state.currentAstro;
+  if (!a || a.status==='offline') return;
+  if (a.status==='busy') { openWaitlist(a); return; }
+  const minCost = a.rate * 3;
+  if (state.wallet < minCost) { showWalletModal(); return; }
+
+  document.getElementById('conn-avatar').textContent = a.emoji;
+  document.getElementById('conn-name').textContent = 'Connecting to '+a.name+'...';
+  goTo('connecting');
+
+  // Simulate Agora connection
+  setTimeout(startCall, 2800);
+}
+
+function cancelConnection() {
+  goTo(state.prevScreen || 'directory');
+  showToast('Connection cancelled');
+}
+
+async function startCall() {
+  const a = state.currentAstro;
+  document.getElementById('call-avatar-main').textContent = a.emoji;
+  document.getElementById('call-astro-name').textContent = a.name;
+  document.getElementById('call-concern-tag').textContent = a.tags[0] + ' consultation';
+  goTo('call');
+
+  state.callSeconds = 0;
+  state.callCost = 0;
+  clearInterval(state.callInterval);
+  state.callInterval = setInterval(() => {
+    state.callSeconds++;
+    const costPerSec = a.rate / 60;
+    state.callCost = costPerSec * state.callSeconds;
+    state.wallet = Math.max(0, state.wallet - costPerSec);
+    updateCallDisplay();
+
+    // Auto-end warning
+    if (state.wallet < a.rate && state.wallet > 0 && state.callSeconds % 30 === 0) {
+      showToast('⚠ Low balance! Call ending soon');
+    }
+    if (state.wallet <= 0) endCall();
+  }, 1000);
+}
+
+function updateCallDisplay() {
+  const m = Math.floor(state.callSeconds/60);
+  const s = state.callSeconds%60;
+  document.getElementById('call-timer').textContent = m+':'+String(s).padStart(2,'0');
+  document.getElementById('call-cost-display').textContent = '₹'+state.callCost.toFixed(2)+' deducted';
+  document.getElementById('call-wallet-display').textContent = 'Balance: ₹'+state.wallet.toFixed(2);
+  document.getElementById('call-cost-bar').textContent = `Cost: ₹${state.callCost.toFixed(2)} · Wallet: ₹${Math.round(state.wallet)}`;
+  document.getElementById('wallet-display4').textContent = Math.round(state.wallet);
+}
+
+function endCall() {
+  clearInterval(state.callInterval);
+  const a = state.currentAstro;
+  const m = Math.floor(state.callSeconds/60);
+  const s = state.callSeconds%60;
+  const dur = m+':'+String(s).padStart(2,'0');
+  const cost = state.callCost.toFixed(2);
+
+  // Save to history
+  state.callHistory.unshift({
+    astro: a,
+    date: new Date(),
+    duration: dur,
+    seconds: state.callSeconds,
+    cost: parseFloat(cost),
+    rating: 0
+  });
+
+  document.getElementById('rating-astro-name').textContent = a.name;
+  document.getElementById('rating-duration').textContent = dur;
+  document.getElementById('rating-amount').textContent = '₹'+cost;
+
+  // Reset stars
+  document.querySelectorAll('.star').forEach(s => s.classList.remove('lit'));
+  document.getElementById('rating-label').textContent = '';
+  state.selectedRating = 0;
+
+  goTo('rating');
+  syncWalletDisplay();
+
+  // Show notif dots
+  document.querySelectorAll('[id^="calls-notif-dot"]').forEach(d => d.style.display='block');
+}
+
+function toggleMute() {
+  state.muted = !state.muted;
+  const btn = document.getElementById('mute-btn');
+  btn.textContent = state.muted ? '🔇' : '🎤';
+  btn.classList.toggle('toggled', state.muted);
+  showToast(state.muted ? '🔇 Muted' : '🎤 Unmuted');
+}
+
+function toggleSpeaker() {
+  state.speaker = !state.speaker;
+  const btn = document.getElementById('speaker-btn');
+  btn.textContent = state.speaker ? '🔊' : '🔈';
+  btn.classList.toggle('toggled', !state.speaker);
+  showToast(state.speaker ? '🔊 Speaker on' : '🔈 Earpiece');
+}
+
+// ════════════════════════════════════════
+// RATING
+// ════════════════════════════════════════
+function rateStar(n) {
+  state.selectedRating = n;
+  document.querySelectorAll('.star').forEach((s,i) => s.classList.toggle('lit', i<n));
+  document.getElementById('rating-label').textContent = RATING_LABELS[n];
+  // Save rating to history
+  if (state.callHistory.length > 0) state.callHistory[0].rating = n;
+}
+
+function submitRating() {
+  if (state.selectedRating > 0) {
+    showToast('✦ Thank you! Your feedback helps others');
+  } else {
+    showToast('✦ Call ended. See you next time!');
+  }
+  updateCallStats();
+  setTimeout(() => goTo('home'), 1200);
+}
+
+// ════════════════════════════════════════
+// CALL HISTORY
+// ════════════════════════════════════════
+function renderCallHistory() {
+  const container = document.getElementById('calls-history-list');
+  if (!state.callHistory.length) {
+    container.innerHTML = `<div class="empty-state"><span class="empty-icon">📞</span><p>No calls yet.<br>Connect with an astrologer to get started!</p></div>`;
+    return;
+  }
+  container.innerHTML = state.callHistory.map((c,i) => {
+    const d = c.date;
+    const dateStr = d.toLocaleDateString('en-IN',{day:'numeric',month:'short'}) + ' at ' + d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+    const stars = c.rating > 0 ? '★'.repeat(c.rating) : 'Not rated';
+    return `<div class="call-history-item" onclick="openProfile(${c.astro.id},'calls')">
+      <div class="ch-avatar">${c.astro.emoji}</div>
+      <div class="ch-info">
+        <div class="ch-name">${c.astro.name}</div>
+        <div class="ch-date">${dateStr}</div>
+        <div class="ch-duration">⏱ ${c.duration} · ${c.astro.tags[0]}</div>
+      </div>
+      <div>
+        <div class="ch-cost">₹${c.cost.toFixed(0)}</div>
+        <div class="ch-rating" style="color:${c.rating>0?'var(--gold)':'var(--muted)'}">${stars}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateCallStats() {
+  const total = state.callHistory.length;
+  const spent = state.callHistory.reduce((s,c)=>s+c.cost,0);
+  const avgSec = total ? state.callHistory.reduce((s,c)=>s+c.seconds,0)/total : 0;
+  const avgMin = Math.round(avgSec/60);
+  document.getElementById('stats-total-calls').textContent = total;
+  document.getElementById('stats-total-spent').textContent = '₹'+Math.round(spent);
+  document.getElementById('stats-avg-dur').textContent = avgMin+'m';
+  document.getElementById('acct-calls').textContent = total;
+}
+
+// ════════════════════════════════════════
+// WAITLIST
+// ════════════════════════════════════════
+function openWaitlist(a) {
+  document.getElementById('waitlist-astro-name').textContent = a.name + ' is busy';
+  document.getElementById('waitlist-modal').classList.remove('hidden');
+}
+
+function closeWaitlistModal(e) {
+  if (!e || e.target.id==='waitlist-modal' || !e.target) {
+    document.getElementById('waitlist-modal').classList.add('hidden');
+  }
+}
+
+function joinWaitlist() {
+  document.getElementById('waitlist-modal').classList.add('hidden');
+  showToast('🔔 You\'re on the waitlist! We\'ll notify you.');
+}
+
+// ════════════════════════════════════════
+// WALLET / RAZORPAY
+// ════════════════════════════════════════
+function showWalletModal() {
+  document.getElementById('wallet-modal').classList.remove('hidden');
+  syncWalletDisplay();
+}
+
+function closeWalletModal() {
+  document.getElementById('wallet-modal').classList.add('hidden');
+}
+
+function closeModal(e) {
+  if (e.target.id==='wallet-modal') closeWalletModal();
+}
+
+function selectRecharge(el, amount) {
+  document.querySelectorAll('.recharge-option').forEach(o=>o.classList.remove('selected'));
+  el.classList.add('selected');
+  state.selectedRecharge = amount;
+  document.getElementById('pay-amount').textContent = amount;
+  document.getElementById('custom-amount').value = '';
+}
+
+function setCustomAmount(val) {
+  const amt = parseInt(val);
+  if (amt >= 50) {
+    state.selectedRecharge = amt;
+    document.getElementById('pay-amount').textContent = amt;
+    document.querySelectorAll('.recharge-option').forEach(o=>o.classList.remove('selected'));
+  }
+}
+
+function initiatePayment() {
+  const amount = state.selectedRecharge;
+  if (!amount || amount < 50) { showToast('⚠ Minimum recharge is ₹50'); return; }
+
+  // Razorpay integration
+  const options = {
+    key: CONFIG.RAZORPAY_KEY,
+    amount: amount * 100, // in paise
+    currency: 'INR',
+    name: 'JyotishConnect',
+    description: 'Wallet Top Up ₹' + amount,
+    image: 'https://i.ibb.co/placeholder/logo.png',
+    handler: function(response) {
+      // Payment success
+      const bonus = amount >= 999 ? 150 : amount >= 499 ? 60 : amount >= 199 ? 20 : 0;
+      state.wallet += amount + bonus;
+      syncWalletDisplay();
+      closeWalletModal();
+      const msg = bonus > 0 ? `✓ ₹${amount} added + ₹${bonus} bonus! Balance: ₹${Math.round(state.wallet)}` : `✓ ₹${amount} added! Balance: ₹${Math.round(state.wallet)}`;
+      showToast(msg);
+      // If there was a pending call, resume it
+      if (state.currentAstro && state.currentAstro.status === 'online') {
+        setTimeout(() => { if (confirm('Proceed to call '+state.currentAstro.name+'?')) initiateCall(); }, 500);
+      }
+    },
+    prefill: {
+      contact: '+91' + state.phone,
+    },
+    notes: { wallet_topup: 'true', amount: amount },
+    theme: { color: '#D4A843' },
+    modal: {
+      ondismiss: function() {
+        showToast('Payment cancelled');
+      }
+    }
+  };
+
+  try {
+    const rzp = new Razorpay(options);
+    rzp.on('payment.failed', function(response) {
+      showToast('✗ Payment failed. Please try again.');
+    });
+    rzp.open();
+  } catch(e) {
+    // Razorpay not available in demo — simulate
+    showToast('Demo mode: Simulating payment...');
+    setTimeout(() => {
+      const bonus = amount >= 999 ? 150 : amount >= 499 ? 60 : amount >= 199 ? 20 : 0;
+      state.wallet += amount + bonus;
+      syncWalletDisplay();
+      closeWalletModal();
+      showToast(`✓ ₹${amount}${bonus>0?' + ₹'+bonus+' bonus':''} added! Balance: ₹${Math.round(state.wallet)}`);
+    }, 1500);
+  }
+}
+
+// ════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════
+function showToast(msg) {
+  document.querySelectorAll('.toast').forEach(t=>t.remove());
+  const active = document.querySelector('.screen.active') || document.getElementById('app');
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.innerHTML = '<span>'+msg+'</span>';
+  active.appendChild(t);
+  setTimeout(()=>t.remove(), 2800);
+}
+
+// ════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════
+function init() {
+  renderDirectoryAndHome();
+  renderHoroscopeStrip();
+  renderKundaliMini();
+  // Hide notif dots initially
+  document.querySelectorAll('[id^="calls-notif-dot"]').forEach(d=>d.style.display='none');
+}
+
+init();
+</script>
+</body>
+</html>
