@@ -10,6 +10,9 @@ class WalletNotifier extends StateNotifier<AsyncValue<double>> {
     refresh();
   }
 
+  /// Test constructor — sets initial state without triggering a network fetch.
+  WalletNotifier.test(AsyncValue<double> initialState) : super(initialState);
+
   final _service = WalletService();
 
   Future<void> refresh() async {
