@@ -48,6 +48,14 @@ app.use(express.json());
 app.use(idempotency);
 
 app.get('/', (req, res) => res.json({ status: 'JyotishConnect API running' }));
+app.get('/health', async (req, res) => {
+  try {
+    await sequelize.authenticate();
+    res.json({ status: 'ok', db: 'connected', uptime: Math.floor(process.uptime()) });
+  } catch (err) {
+    res.status(503).json({ status: 'error', db: 'disconnected' });
+  }
+});
 
 app.use('/auth', authRoutes);
 app.use('/call', callRoutes);

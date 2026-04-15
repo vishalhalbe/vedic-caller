@@ -9,6 +9,8 @@ import 'features/home/home_screen.dart';
 import 'features/astrologer/astrologer_list_screen.dart';
 import 'features/call/call_screen_v2.dart';
 import 'features/history/history_screen.dart';
+import 'features/wallet/wallet_provider.dart';
+import 'services/auth_service.dart';
 
 final _authTokenProvider = FutureProvider<String?>((ref) async {
   return TokenStorage().get();
@@ -72,14 +74,14 @@ class JyotishApp extends StatelessWidget {
 }
 
 /// Bottom-tab shell wrapping the three main screens.
-class MainShell extends StatefulWidget {
+class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
 
   @override
-  State<MainShell> createState() => _MainShellState();
+  ConsumerState<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class _MainShellState extends ConsumerState<MainShell> {
   int _index = 0;
 
   static const _screens = [
@@ -87,9 +89,26 @@ class _MainShellState extends State<MainShell> {
     HistoryScreen(),
   ];
 
+  Future<void> _logout() async {
+    await AuthService().logout();
+    await TokenStorage().delete();
+    ref.invalidate(walletProvider);
+    if (mounted) context.go('/login');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('JyotishConnect'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Logout',
+            onPressed: _logout,
+          ),
+        ],
+      ),
       body: _screens[_index],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _index,

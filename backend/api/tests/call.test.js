@@ -71,6 +71,11 @@ describe('GET /astrologer', () => {
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
   });
+
+  it('GET /astrologer/all returns 404 (route removed)', async () => {
+    const res = await request(app).get('/astrologer/all');
+    expect(res.status).toBe(404);
+  });
 });
 
 describe('GET /callHistory', () => {

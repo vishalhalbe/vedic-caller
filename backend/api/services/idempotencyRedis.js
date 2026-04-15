@@ -1,10 +1,12 @@
-const redis = require('./redisClient');
+const redis = require('../config/redisClient');
 
 exports.check = async (key) => {
+  if (!redis) return null;
   const data = await redis.get(key);
   return data ? JSON.parse(data) : null;
 };
 
 exports.save = async (key, value) => {
-  await redis.set(key, JSON.stringify(value), 'EX', 3600);
+  if (!redis) return;
+  await redis.setex(key, 3600, JSON.stringify(value));
 };

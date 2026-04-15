@@ -1,4 +1,5 @@
-// In-memory idempotency middleware (no Redis)
+// In-memory idempotency middleware.
+// Keys survive only for the lifetime of the process (sufficient until Redis is needed).
 const { check, save } = require('../services/idempotency_simple');
 
 module.exports = (req, res, next) => {

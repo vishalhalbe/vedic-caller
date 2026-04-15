@@ -16,17 +16,5 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-// GET /astrologer/all — list all astrologers (admin use)
-router.get('/all', async (req, res, next) => {
-  try {
-    const astrologers = await Astrologer.findAll({
-      attributes: ['id', 'name', 'rate_per_minute', 'is_available'],
-      order: [['name', 'ASC']],
-    });
-    res.json(astrologers);
-  } catch (err) {
-    next(err);
-  }
-});
 
 module.exports = router;

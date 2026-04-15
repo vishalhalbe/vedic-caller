@@ -1,6 +1,7 @@
 const jwt = require('../services/jwt');
+const { User } = require('../models');
 
-module.exports = (req, res, next) => {
+const auth = (req, res, next) => {
   const header = req.headers.authorization;
   if (!header) return res.status(401).json({ error: 'No token provided' });
 
@@ -14,3 +15,16 @@ module.exports = (req, res, next) => {
     res.status(401).json({ error: 'Invalid or expired token' });
   }
 };
+
+const requireAdmin = async (req, res, next) => {
+  try {
+    const user = await User.findByPk(req.user.id, { attributes: ['is_admin'] });
+    if (!user?.is_admin) return res.status(403).json({ error: 'Admin only' });
+    next();
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = auth;
+module.exports.requireAdmin = requireAdmin;

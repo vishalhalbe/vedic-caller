@@ -19,4 +19,12 @@ class AuthService {
     });
     return res.data['token'] as String;
   }
+
+  Future<void> logout() async {
+    try {
+      await _api.post('/auth/logout');
+    } catch (_) {
+      // Best-effort — client always clears local token regardless
+    }
+  }
 }

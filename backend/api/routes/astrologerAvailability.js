@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/authMiddleware');
+const { requireAdmin } = require('../middleware/authMiddleware');
 const { Astrologer } = require('../models');
 
-// POST /availability/toggle — set astrologer availability
-router.post('/toggle', auth, async (req, res, next) => {
+// POST /availability/toggle — set astrologer availability (admin only)
+router.post('/toggle', auth, requireAdmin, async (req, res, next) => {
   try {
     const { astrologer_id, available } = req.body;
     if (!astrologer_id || available === undefined) {

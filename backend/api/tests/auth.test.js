@@ -90,3 +90,21 @@ describe('POST /auth/login', () => {
     expect(res.body.token).toBeDefined();
   });
 });
+
+describe('POST /auth/logout', () => {
+  it('returns 401 without token', async () => {
+    const res = await request(app).post('/auth/logout');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 200 with valid token', async () => {
+    const email    = `logout_test_${Date.now()}@example.com`;
+    const password = 'LogoutPass99';
+    await request(app).post('/auth/register').send({ email, password });
+    const loginRes = await request(app).post('/auth/login').send({ email, password });
+    const token = `Bearer ${loginRes.body.token}`;
+    const res = await request(app).post('/auth/logout').set('Authorization', token);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+  });
+});

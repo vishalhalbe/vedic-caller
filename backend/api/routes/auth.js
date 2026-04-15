@@ -3,6 +3,7 @@ const router   = express.Router();
 const bcrypt   = require('bcryptjs');
 const { User } = require('../models');
 const jwt      = require('../services/jwt');
+const auth     = require('../middleware/authMiddleware');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASS = 8;
@@ -63,6 +64,13 @@ router.post('/login', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// POST /auth/logout
+// Stateless logout — client discards the token. This endpoint exists so Flutter
+// can call it and for future token blacklisting when Redis is wired in (TASK-05).
+router.post('/logout', auth, (req, res) => {
+  res.json({ success: true });
 });
 
 module.exports = router;
