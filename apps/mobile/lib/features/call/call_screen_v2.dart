@@ -209,10 +209,35 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 
   Widget _callView() {
     final cost = (widget.rate / 60) * _seconds;
+    final walletBalance = ref.watch(walletProvider).valueOrNull ?? 0.0;
+    final remainingBalance = walletBalance - cost;
+    final secondsRemaining = (remainingBalance / (widget.rate / 60)).floor();
+    final lowBalance = _remoteJoined && secondsRemaining < 60 && secondsRemaining >= 0;
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        // Low balance warning banner
+        if (lowBalance)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade900.withOpacity(0.85),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  'Low balance — ~$secondsRemaining seconds left',
+                  style: const TextStyle(color: Colors.orangeAccent, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
         // ── Avatar ──────────────────────────────────────────────────────────
         Container(
           width: 100, height: 100,

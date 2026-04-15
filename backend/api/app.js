@@ -4,7 +4,7 @@ const cors = require('cors');
 const sequelize = require('./config/db');
 
 const logger = require('./middleware/logger');
-const rateLimiter = require('./middleware/rateLimiter');
+const { globalLimiter, authLimiter } = require('./middleware/rateLimiter');
 const errorHandler = require('./middleware/errorHandler');
 const idempotency = require('./middleware/idempotencyMiddleware_v2');
 const authMiddleware = require('./middleware/authMiddleware');
@@ -20,6 +20,7 @@ const webhookRoutes = require('./routes/webhook_v2');
 const metricsRoutes = require('./routes/metrics');
 
 const app = express();
+app.set('trust proxy', 1); // trust first proxy (for X-Forwarded-For in rate limiting)
 
 // CORS — restrict to known origins in production
 const allowedOrigins = process.env.ALLOWED_ORIGINS
@@ -38,7 +39,7 @@ app.use(cors({
 }));
 
 app.use(logger);
-app.use(rateLimiter);
+app.use(globalLimiter);
 
 // Webhook MUST be mounted before express.json() — it uses express.raw() internally
 app.use('/webhook', webhookRoutes);
@@ -57,7 +58,7 @@ app.get('/health', async (req, res) => {
   }
 });
 
-app.use('/auth', authRoutes);
+app.use('/auth', authLimiter, authRoutes);
 app.use('/call', callRoutes);
 app.use('/wallet', walletRoutes);
 app.use('/astrologer', astrologerRoutes);

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/api_client.dart';
 import '../../main.dart' show logoutUser;
+import '../wallet/wallet_provider.dart';
 import '../wallet/wallet_widget.dart';
 
 final _astrologersProvider = FutureProvider<List<dynamic>>((ref) async {
@@ -57,17 +58,23 @@ class AstrologerListScreen extends ConsumerWidget {
                           style: TextStyle(color: Colors.white54),
                         ),
                       )
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        itemCount: list.length,
-                        itemBuilder: (context, index) {
-                          final a = list[index];
-                          final rate = (a['rate_per_minute'] as num).toDouble();
-                          return _AstrologerTile(
-                            id: a['id'] as String,
-                            name: a['name'] as String,
-                            rate: rate,
-                            isAvailable: a['is_available'] == true,
+                    : Consumer(
+                        builder: (context, ref, _) {
+                          final balance = ref.watch(walletProvider).valueOrNull ?? 0.0;
+                          return ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            itemCount: list.length,
+                            itemBuilder: (context, index) {
+                              final a = list[index];
+                              final rate = (a['rate_per_minute'] as num).toDouble();
+                              return _AstrologerTile(
+                                id: a['id'] as String,
+                                name: a['name'] as String,
+                                rate: rate,
+                                isAvailable: a['is_available'] == true,
+                                walletBalance: balance,
+                              );
+                            },
                           );
                         },
                       ),
@@ -85,16 +92,21 @@ class _AstrologerTile extends StatelessWidget {
   final String name;
   final double rate;
   final bool isAvailable;
+  final double walletBalance;
 
   const _AstrologerTile({
     required this.id,
     required this.name,
     required this.rate,
     required this.isAvailable,
+    required this.walletBalance,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Require at least 1 minute of balance before allowing a call
+    final canCall = isAvailable && walletBalance >= rate;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -140,21 +152,31 @@ class _AstrologerTile extends StatelessWidget {
                     ),
                   ],
                 ),
+                // Low balance hint — only shown when astrologer is available but balance is too low
+                if (isAvailable && walletBalance < rate)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Add funds to call',
+                      style: TextStyle(color: Colors.orangeAccent, fontSize: 11),
+                    ),
+                  ),
               ],
             ),
           ),
           const SizedBox(width: 12),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  isAvailable ? Colors.amber.shade600 : Colors.grey.shade800,
-              foregroundColor: isAvailable ? Colors.black : Colors.white38,
+              backgroundColor: canCall
+                  ? Colors.amber.shade600
+                  : Colors.grey.shade800,
+              foregroundColor: canCall ? Colors.black : Colors.white38,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
-            onPressed: isAvailable
+            onPressed: canCall
                 ? () => context.push('/call', extra: {
                       'astrologer_id': id,
                       'name': name,

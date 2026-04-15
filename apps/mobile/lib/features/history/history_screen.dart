@@ -10,6 +10,20 @@ String _formatDuration(int seconds) {
   return '${m}m ${s}s';
 }
 
+String _formatDate(String? isoString) {
+  if (isoString == null) return '';
+  final dt = DateTime.tryParse(isoString)?.toLocal();
+  if (dt == null) return '';
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final callDay = DateTime(dt.year, dt.month, dt.day);
+  final hour = dt.hour.toString().padLeft(2, '0');
+  final min  = dt.minute.toString().padLeft(2, '0');
+  if (callDay == today) return 'Today $hour:$min';
+  if (callDay == today.subtract(const Duration(days: 1))) return 'Yesterday $hour:$min';
+  return '${dt.day}/${dt.month}/${dt.year} $hour:$min';
+}
+
 final _historyProvider = FutureProvider<List<dynamic>>((ref) async {
   // JWT identity used server-side — no hardcoded userId
   return HistoryService().getHistory();
@@ -47,11 +61,22 @@ class HistoryScreen extends ConsumerWidget {
                     final duration = c['duration_seconds'] ?? 0;
                     final cost = (c['cost'] as num?)?.toDouble() ?? 0.0;
                     final astrologer = c['Astrologer']?['name'] ?? 'Astrologer';
+                    final dateStr = _formatDate(c['created_at'] as String?);
                     return ListTile(
                       leading: const Icon(Icons.call, color: Colors.greenAccent),
                       title: Text(astrologer, style: const TextStyle(color: Colors.white)),
-                      subtitle: Text('${_formatDuration(duration as int)}  ·  ₹${cost.toStringAsFixed(2)}',
-                          style: const TextStyle(color: Colors.white54)),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${_formatDuration(duration as int)}  ·  ₹${cost.toStringAsFixed(2)}',
+                            style: const TextStyle(color: Colors.white54),
+                          ),
+                          if (dateStr.isNotEmpty)
+                            Text(dateStr, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                        ],
+                      ),
+                      isThreeLine: dateStr.isNotEmpty,
                       trailing: Text(c['status'] ?? '',
                           style: TextStyle(
                             color: c['status'] == 'completed' ? Colors.greenAccent : Colors.orange,

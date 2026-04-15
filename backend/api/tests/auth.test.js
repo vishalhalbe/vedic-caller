@@ -91,6 +91,24 @@ describe('POST /auth/login', () => {
   });
 });
 
+describe('Auth rate limiting', () => {
+  it('returns 429 after 10 failed login attempts', async () => {
+    // Use a unique X-Forwarded-For IP so this test doesn't pollute other tests
+    const fakeIp = `10.99.${Date.now() % 255}.1`;
+    for (let i = 0; i < 10; i++) {
+      await request(app)
+        .post('/auth/login')
+        .set('X-Forwarded-For', fakeIp)
+        .send({ email: 'nobody@example.com', password: 'wrong' });
+    }
+    const res = await request(app)
+      .post('/auth/login')
+      .set('X-Forwarded-For', fakeIp)
+      .send({ email: 'nobody@example.com', password: 'wrong' });
+    expect(res.status).toBe(429);
+  });
+});
+
 describe('POST /auth/logout', () => {
   it('returns 401 without token', async () => {
     const res = await request(app).post('/auth/logout');
