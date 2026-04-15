@@ -42,7 +42,9 @@ exports.finaliseCall = async (call, durationSeconds, endedAt) => {
   // Rate is read from the stored call record — client cannot influence billing
   const cost = parseFloat(((call.rate_per_minute / 60) * durationSeconds).toFixed(2));
 
-  await atomicDeduct(call.user_id, cost);
+  // Reference tied to call.id so a retried /call/end cannot double-deduct.
+  // The UNIQUE constraint on transactions.reference blocks the second deduction.
+  await atomicDeduct(call.user_id, cost, `call_end_${call.id}`);
 
   await call.update({
     status: 'completed',

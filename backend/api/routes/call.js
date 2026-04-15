@@ -29,12 +29,20 @@ function buildAgoraToken(channelName, uid) {
 // POST /call/start
 router.post('/start', auth, async (req, res, next) => {
   try {
-    const { astrologer_id, rate } = req.body;
-    if (!astrologer_id || !rate) {
-      return res.status(400).json({ error: 'astrologer_id and rate required' });
+    const { astrologer_id } = req.body;
+    if (!astrologer_id) {
+      return res.status(400).json({ error: 'astrologer_id required' });
     }
 
-    const parsedRate = parseFloat(rate);
+    // Rate is always read from the DB — never trusted from the client
+    const { Astrologer } = require('../models');
+    const astrologer = await Astrologer.findByPk(astrologer_id, {
+      attributes: ['id', 'rate_per_minute', 'is_available'],
+    });
+    if (!astrologer) return res.status(404).json({ error: 'Astrologer not found' });
+    if (!astrologer.is_available) return res.status(400).json({ error: 'Astrologer is not available' });
+
+    const parsedRate = parseFloat(astrologer.rate_per_minute);
 
     // Check user has funds before starting
     const user = await User.findByPk(req.user.id, { attributes: ['wallet_balance'] });

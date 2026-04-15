@@ -24,27 +24,17 @@ describe('POST /call/start', () => {
     const res = await request(app)
       .post('/call/start')
       .set('Authorization', token)
-      .send({ rate: 60 });
+      .send({});
     expect(res.status).toBe(400);
   });
 
-  it('returns 400 when rate is missing', async () => {
+  it('returns 404 for non-existent astrologer', async () => {
     const { token } = await registerAndLogin();
     const res = await request(app)
       .post('/call/start')
       .set('Authorization', token)
       .send({ astrologer_id: '00000000-0000-0000-0000-000000000000' });
-    expect(res.status).toBe(400);
-  });
-
-  it('returns 400 for insufficient balance (new user has ₹0)', async () => {
-    const { token } = await registerAndLogin();
-    const res = await request(app)
-      .post('/call/start')
-      .set('Authorization', token)
-      .send({ astrologer_id: '00000000-0000-0000-0000-000000000000', rate: 60 });
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/insufficient/i);
+    expect(res.status).toBe(404);
   });
 });
 

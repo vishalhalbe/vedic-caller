@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
 const { atomicCredit } = require('../services/walletEngine');
+const { Order } = require('../models');
 
 // Razorpay sends raw body — must parse before express.json() strips it.
 // Mount this route BEFORE express.json() in app.js, or use express.raw() here.
@@ -29,12 +30,25 @@ router.post('/razorpay', express.raw({ type: 'application/json' }), async (req, 
     if (event.event === 'payment.captured') {
       const payment = event.payload.payment.entity;
       const userId  = payment.notes?.user_id;
+      const orderId = payment.order_id;
 
       if (!userId) return res.status(400).json({ error: 'Missing user_id in payment notes' });
 
-      const amountInr = payment.amount / 100; // Razorpay sends paise
+      // Use the server-stored order amount (not payment.amount) to prevent partial-capture tricks
+      let amountInr;
+      const order = orderId ? await Order.findByPk(orderId) : null;
+      if (order) {
+        amountInr = parseFloat(order.amount);
+      } else {
+        amountInr = payment.amount / 100; // fallback for orders created before orders table existed
+      }
 
       await atomicCredit(userId, amountInr, payment.id);
+
+      // Mark order as paid so /payment/success won't attempt a second credit
+      if (order && order.status !== 'paid') {
+        await order.update({ status: 'paid' });
+      }
     }
 
     res.json({ status: 'ok' });
