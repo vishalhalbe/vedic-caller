@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../main.dart' show logoutUser;
 import '../../services/history_service.dart';
+
+String _formatDuration(int seconds) {
+  final m = seconds ~/ 60;
+  final s = seconds % 60;
+  if (m == 0) return '${s}s';
+  return '${m}m ${s}s';
+}
 
 final _historyProvider = FutureProvider<List<dynamic>>((ref) async {
   // JWT identity used server-side — no hardcoded userId
@@ -15,7 +23,16 @@ class HistoryScreen extends ConsumerWidget {
     final history = ref.watch(_historyProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Call History')),
+      appBar: AppBar(
+        title: const Text('Call History'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Logout',
+            onPressed: () => logoutUser(ref, context),
+          ),
+        ],
+      ),
       body: history.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e', style: const TextStyle(color: Colors.red))),
@@ -33,7 +50,7 @@ class HistoryScreen extends ConsumerWidget {
                     return ListTile(
                       leading: const Icon(Icons.call, color: Colors.greenAccent),
                       title: Text(astrologer, style: const TextStyle(color: Colors.white)),
-                      subtitle: Text('${duration}s  ·  ₹${cost.toStringAsFixed(2)}',
+                      subtitle: Text('${_formatDuration(duration as int)}  ·  ₹${cost.toStringAsFixed(2)}',
                           style: const TextStyle(color: Colors.white54)),
                       trailing: Text(c['status'] ?? '',
                           style: TextStyle(

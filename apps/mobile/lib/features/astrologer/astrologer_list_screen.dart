@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/api_client.dart';
+import '../../main.dart' show logoutUser;
 import '../wallet/wallet_widget.dart';
 
 final _astrologersProvider = FutureProvider<List<dynamic>>((ref) async {
@@ -24,6 +25,13 @@ class AstrologerListScreen extends ConsumerWidget {
           'JyotishConnect',
           style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.white54),
+            tooltip: 'Logout',
+            onPressed: () => logoutUser(ref, context),
+          ),
+        ],
       ),
       body: Column(
         children: [
