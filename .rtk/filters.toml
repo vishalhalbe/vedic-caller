@@ -1,0 +1,125 @@
+# JyotishConnect — RTK Project-Local Filters
+# Commit this file with the repository.
+# Filters here override user-global and built-in filters.
+# Docs: https://github.com/rtk-ai/rtk
+schema_version = 1
+
+# ── Flutter ──────────────────────────────────────────────────────────────────
+
+[filters.flutter-pub-get]
+description = "Compact flutter pub get output"
+match_command = "^flutter\\s+pub\\s+get"
+strip_ansi = true
+strip_lines_matching = [
+  "^Resolving dependencies",
+  "^  \\+ ",          # individual package lines
+  "^  unchanged ",
+  "^Got dependencies",
+  "^Downloading ",
+]
+max_lines = 20
+on_empty = "flutter pub get: ok"
+
+[filters.flutter-run]
+description = "Filter flutter run noise"
+match_command = "^flutter\\s+run"
+strip_ansi = true
+strip_lines_matching = [
+  "^Launching ",
+  "^Syncing files",
+  "^\\s*$",
+  "^Flutter run key commands",
+  "^r Hot reload",
+  "^R Hot restart",
+  "^h List all available interactive commands",
+  "^d Detach",
+  "^c Clear the screen",
+  "^q Quit",
+]
+max_lines = 50
+
+[filters.flutter-build]
+description = "Compact flutter build output"
+match_command = "^flutter\\s+build"
+strip_ansi = true
+strip_lines_matching = [
+  "^Running Gradle task",
+  "^\\s*$",
+  "^Font asset",
+  "^  -",
+]
+max_lines = 30
+on_empty = "flutter build: ok"
+
+# ── Node.js / npm ─────────────────────────────────────────────────────────────
+
+[filters.npm-install]
+description = "Compact npm install output"
+match_command = "^npm\\s+(install|i|ci)"
+strip_ansi = true
+strip_lines_matching = [
+  "^npm warn",
+  "^npm notice",
+  "^added \\d+ packages",
+  "^\\s*$",
+]
+max_lines = 15
+on_empty = "npm install: ok"
+
+[filters.npm-test-jest]
+description = "Show only Jest test failures and summary"
+match_command = "^npm\\s+test|^jest"
+strip_ansi = true
+strip_lines_matching = [
+  "^\\s*console\\.",
+  "^\\s*at Object\\.",
+  "^\\s*at Module\\.",
+  "^\\s*at require ",
+  "^PASS ",           # passed suites — only show failures
+]
+max_lines = 100
+on_empty = "All tests passed"
+
+[filters.node-start]
+description = "Filter node app startup verbosity"
+match_command = "^node\\s+app\\.js|^pm2\\s+start"
+strip_ansi = true
+strip_lines_matching = [
+  "^\\s*$",
+  "^Executing ",
+]
+max_lines = 20
+
+# ── Playwright / E2E ──────────────────────────────────────────────────────────
+
+[filters.playwright]
+description = "Show only Playwright failures and summary"
+match_command = "^npx\\s+playwright|^playwright\\s+test"
+strip_ansi = true
+strip_lines_matching = [
+  "^  ✓ ",            # passed tests — only show failures
+  "^Running \\d+ test",
+]
+max_lines = 80
+on_empty = "All Playwright tests passed"
+
+# ── Supabase ──────────────────────────────────────────────────────────────────
+
+[filters.supabase-db]
+description = "Compact supabase db push output"
+match_command = "^supabase\\s+db"
+strip_ansi = true
+strip_lines_matching = [
+  "^\\s*$",
+  "^Connecting to ",
+]
+max_lines = 30
+on_empty = "supabase db: ok"
+
+# ── Git (project-specific) ────────────────────────────────────────────────────
+
+[filters.git-log-verbose]
+description = "Compact git log for vedic-caller"
+match_command = "^git\\s+log"
+strip_ansi = true
+max_lines = 30
