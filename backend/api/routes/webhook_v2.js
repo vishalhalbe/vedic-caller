@@ -10,13 +10,7 @@ router.post('/razorpay', express.raw({ type: 'application/json' }), async (req, 
     const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
     if (!secret) {
-      if (process.env.NODE_ENV !== 'production') {
-        // Dev mode: no webhook secret set yet (no public URL), log and skip
-        console.warn('[webhook] RAZORPAY_WEBHOOK_SECRET not set — skipping in dev mode');
-        return res.json({ status: 'ok (dev mode, signature skipped)' });
-      }
-      // Production: webhook secret is mandatory — reject hard
-      console.error('[webhook] RAZORPAY_WEBHOOK_SECRET not set in production');
+      console.error('[webhook] RAZORPAY_WEBHOOK_SECRET not set — webhook not configured');
       return res.status(500).json({ error: 'Webhook not configured' });
     }
 

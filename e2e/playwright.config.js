@@ -1,5 +1,7 @@
 // @ts-check
 const { defineConfig } = require('@playwright/test');
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../backend/api/.env') });
 
 module.exports = defineConfig({
   testDir: './tests',

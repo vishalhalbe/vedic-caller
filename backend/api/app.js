@@ -62,17 +62,20 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 
-sequelize.authenticate()
-  .then(() => {
-    console.log('Database connected');
-    return sequelize.sync({ alter: false });
-  })
-  .then(() => {
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-  })
-  .catch((err) => {
-    console.error('Database connection failed:', err.message);
-    app.listen(PORT, () => console.log(`Server running on port ${PORT} (no DB)`));
-  });
+// Only start the HTTP server when this file is run directly (not when imported by tests)
+if (require.main === module) {
+  sequelize.authenticate()
+    .then(() => {
+      console.log('Database connected');
+      return sequelize.sync({ alter: false });
+    })
+    .then(() => {
+      app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+    })
+    .catch((err) => {
+      console.error('Database connection failed:', err.message);
+      process.exit(1);
+    });
+}
 
 module.exports = app;

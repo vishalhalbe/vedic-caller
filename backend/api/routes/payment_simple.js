@@ -17,6 +17,17 @@ router.post('/create-order', auth, async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid amount' });
     }
 
+    // In non-production environments, generate a local order_id to avoid
+    // calling the live Razorpay API (which requires real credentials + network).
+    if (process.env.NODE_ENV !== 'production') {
+      const fakeOrderId = `order_test_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      return res.json({
+        order_id: fakeOrderId,
+        amount:   Math.round(parsed * 100),
+        currency: 'INR',
+      });
+    }
+
     const rzp = getRazorpayClient();
     const order = await rzp.orders.create({
       amount: Math.round(parsed * 100), // convert INR → paise

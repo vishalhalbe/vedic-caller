@@ -2,8 +2,22 @@
  * Webhook + payment security tests
  */
 const request = require('supertest');
-const app     = require('../app');
 const crypto  = require('crypto');
+
+// Mock Razorpay so create-order tests don't hit the live API
+jest.mock('../services/razorpayClient', () => ({
+  getRazorpayClient: () => ({
+    orders: {
+      create: jest.fn().mockResolvedValue({
+        id: 'order_test_mock123',
+        amount: 10000,
+        currency: 'INR',
+      }),
+    },
+  }),
+}));
+
+const app = require('../app');
 
 let _seq = 0;
 async function registerAndLogin() {

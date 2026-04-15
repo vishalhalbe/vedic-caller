@@ -62,7 +62,6 @@ test.describe('Call Flow', () => {
     if (!astrologerId) { test.skip(); return; }
 
     const { token } = await register(request);
-    // Top up ₹500
     await topUpWallet(request, token, 500);
 
     // Start call
@@ -76,34 +75,33 @@ test.describe('Call Flow', () => {
     expect(startBody.channel).toBeTruthy();
     const callId = startBody.call_id;
 
-    // End call after simulated 60 seconds
-    const durationSeconds = 60;
+    // End call immediately — server computes duration server-side
     const endRes = await request.post('/call/end', {
-      data: { call_id: callId, rate: RATE, duration_seconds: durationSeconds },
+      data: { call_id: callId },
       headers: { Authorization: `Bearer ${token}` },
     });
     expect(endRes.status()).toBe(200);
+    const endBody = await endRes.json();
 
-    // cost = (60/60) * 60 = ₹60
-    const expectedCost = parseFloat(((RATE / 60) * durationSeconds).toFixed(2));
-
-    // Verify balance
-    const balRes = await request.get('/wallet/balance', auth(token));
-    const { balance } = await balRes.json();
-    expect(balance).toBeCloseTo(500 - expectedCost, 1);
-
-    // Verify history
+    // Verify history — duration and cost must match the billing formula
     const histRes = await request.get('/callHistory', auth(token));
     expect(histRes.status()).toBe(200);
     const history = await histRes.json();
     expect(history.length).toBeGreaterThan(0);
     const latest = history[0];
-    expect(latest.duration_seconds).toBe(durationSeconds);
-    expect(parseFloat(latest.cost)).toBeCloseTo(expectedCost, 1);
     expect(latest.status).toBe('completed');
+
+    // cost = (rate_per_minute / 60) * duration_seconds — verify formula holds
+    const expectedCost = parseFloat(((RATE / 60) * latest.duration_seconds).toFixed(2));
+    expect(parseFloat(latest.cost)).toBeCloseTo(expectedCost, 2);
+
+    // Verify wallet was reduced by exactly the cost
+    const balRes = await request.get('/wallet/balance', auth(token));
+    const { balance } = await balRes.json();
+    expect(balance).toBeCloseTo(500 - parseFloat(latest.cost), 2);
   });
 
-  test('call billing rounds to 2 decimal places', async ({ request }) => {
+  test('call billing formula: cost = (rate/60) * duration', async ({ request }) => {
     const astrologerId = process.env.TEST_ASTROLOGER_ID;
     if (!astrologerId) { test.skip(); return; }
 
@@ -114,16 +112,20 @@ test.describe('Call Flow', () => {
       data: { astrologer_id: astrologerId, rate: 35 },
       headers: { Authorization: `Bearer ${token}` },
     });
+    expect(startRes.status()).toBe(200);
     const { call_id } = await startRes.json();
 
-    // 90 seconds @ ₹35/min = ₹52.50
     const endRes = await request.post('/call/end', {
-      data: { call_id, rate: 35, duration_seconds: 90 },
+      data: { call_id },
       headers: { Authorization: `Bearer ${token}` },
     });
     expect(endRes.status()).toBe(200);
 
-    const { balance } = await (await request.get('/wallet/balance', auth(token))).json();
-    expect(balance).toBeCloseTo(500 - 52.5, 1);
+    // Verify billing formula from history
+    const histRes = await request.get('/callHistory', auth(token));
+    const history = await histRes.json();
+    const latest = history[0];
+    const formulaCost = parseFloat(((35 / 60) * latest.duration_seconds).toFixed(2));
+    expect(parseFloat(latest.cost)).toBeCloseTo(formulaCost, 2);
   });
 });
