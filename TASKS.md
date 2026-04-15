@@ -2,7 +2,7 @@
 
 > **Legend:** ✅ Done · 🔴 Critical · 🟠 High · 🟡 Medium · ⬜ Pending
 >
-> Last updated: 2026-04-15  
+> Last updated: 2026-04-15 (session 3)  
 > Branch convention: `fix/<task-id>-<slug>` or work directly on `main` for hotfixes.
 
 ---
@@ -95,13 +95,7 @@
 ---
 
 ### TASK-10 · Rate limiting hardening
-**Files:** `backend/api/middleware/rateLimiter.js`  
-**Status:** ⬜ Pending
-
-**Steps:**
-- [ ] 10.1 Read current rate limiter config
-- [ ] 10.2 Add tighter limits for auth endpoints: max 10 requests / 15 min per IP on `/auth/register` and `/auth/login`
-- [ ] 10.3 Add test: 11th login attempt in window returns 429
+**Status:** ✅ Done — auth endpoints limited to 10 req/15min per IP, 429 test added
 
 ---
 
@@ -138,6 +132,11 @@
 
 | Task | Description | Issue |
 |------|-------------|-------|
+| TASK-10 | Auth rate limiting — 10 req/15min per IP on `/auth/*` | – |
+| UX-01 | Call button disabled + "Add funds" hint when balance < rate | – |
+| UX-02 | Low-balance warning banner in call screen (<60s remaining) | – |
+| UX-03 | History entries show date/time (Today, Yesterday, dd/mm/yyyy) | – |
+| Fix | Double AppBar bug (MainShell + screen AppBars) | – |
 | Auth #1 | Bearer token prefix stripped in authMiddleware | #1 |
 | Auth #2 | Email/password auth replaces phone/OTP | #17 |
 | Security #1 | `timingSafeEqual` for Razorpay HMAC | #4 |
