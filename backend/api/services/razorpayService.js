@@ -7,5 +7,13 @@ exports.verifySignature = (orderId, paymentId, signature, secret) => {
     .update(body)
     .digest('hex');
 
-  return expected === signature;
+  // Use timing-safe comparison to prevent timing-based signature forgery (issue #4)
+  try {
+    const expectedBuf = Buffer.from(expected,   'hex');
+    const actualBuf   = Buffer.from(signature,  'hex');
+    if (expectedBuf.length !== actualBuf.length) return false;
+    return crypto.timingSafeEqual(expectedBuf, actualBuf);
+  } catch {
+    return false;
+  }
 };

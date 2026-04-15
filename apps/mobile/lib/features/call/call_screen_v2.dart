@@ -145,7 +145,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 
   Future<void> _endCall() async {
     if (_ending) return;
-    setState(() => _ending = true);
+    if (mounted) setState(() => _ending = true);
     _timer?.cancel();
 
     try {
