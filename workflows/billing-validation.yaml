@@ -1,0 +1,66 @@
+name: billing-validation
+description: Validate billing accuracy and financial correctness for JyotishConnect
+version: "1.0"
+applies_to:
+  - codebase_analysis
+variables: {}
+stages:
+  - name: formula_check
+    type: custom
+    target: billing
+    uses_history: false
+    enabled: true
+    prompt: >
+      Verify the billing formula is consistently applied across all components:
+      Formula: cost = (rate_per_minute / 60) * duration_seconds
+
+      Check these files:
+      - backend/api/services/billingEngine.js
+      - backend/api/services/walletService.js
+      - backend/api/services/callLifecycle.js
+      - backend/api/routes/wallet.js
+      - apps/mobile/lib/features/call/call_screen_v2.dart
+
+      For each file:
+      1. Is the formula correct?
+      2. Is floating point handled safely (numeric(10,2) in DB)?
+      3. Is duration floored/rounded consistently?
+      4. Could rounding cause accumulated error over many seconds?
+      Output JSON: {"formula_consistency": [{file, formula_found, correct, issue}]}
+
+  - name: edge_case_analysis
+    type: custom
+    target: billing
+    uses_history: true
+    enabled: true
+    prompt: >
+      Identify billing edge cases that need test coverage:
+      1. Zero-second call (immediate hangup)
+      2. Exact balance — cost equals remaining balance
+      3. Sub-penny cost (rate=1, seconds=1 → 0.0167 INR)
+      4. Very long call (10000 seconds × high rate)
+      5. Concurrent calls from same user
+      6. Server restart mid-call (startTime lost)
+      7. Network timeout on /call/end (client retries)
+      Output JSON: {"edge_cases": [{scenario, expected_behaviour, risk, test_needed}]}
+
+  - name: atomic_deduction_review
+    type: custom
+    target: walletEngine
+    uses_history: false
+    enabled: true
+    prompt: >
+      Review walletEngine.atomicDeduct for correctness:
+      1. Is SELECT FOR UPDATE correctly preventing phantom reads?
+      2. Is the transaction isolation level appropriate (READ COMMITTED vs SERIALIZABLE)?
+      3. Does the Transaction.create happen inside the same DB transaction?
+      4. What happens if Transaction.create fails after the UPDATE succeeds?
+      5. Is there a rollback on any failure?
+      Output JSON: {"atomicity_review": {correct, issues, recommendations}}
+
+post_process:
+  reorder_sections: []
+  add_metadata:
+    enhanced: true
+    workflow: billing-validation
+    project: jyotishconnect

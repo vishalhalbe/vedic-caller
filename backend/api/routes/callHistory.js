@@ -1,16 +1,21 @@
 const express = require('express');
 const router = express.Router();
+const auth = require('../middleware/authMiddleware');
+const { Call, Astrologer } = require('../models');
 
-let history = []; // temp store
-
-router.post('/add', (req,res)=>{
-  history.push(req.body);
-  res.json({success:true});
-});
-
-router.get('/:userId', (req,res)=>{
-  const data = history.filter(h=>h.user_id==req.params.userId);
-  res.json(data);
+// GET /callHistory — return call history for authenticated user
+router.get('/', auth, async (req, res, next) => {
+  try {
+    const calls = await Call.findAll({
+      where: { user_id: req.user.id },
+      include: [{ model: Astrologer, attributes: ['name', 'rate_per_minute'] }],
+      order: [['created_at', 'DESC']],
+      limit: 50,
+    });
+    res.json(calls);
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;

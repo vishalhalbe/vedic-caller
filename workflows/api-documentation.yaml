@@ -1,0 +1,69 @@
+name: api-documentation
+description: Generate comprehensive API documentation for JyotishConnect REST API
+version: "1.0"
+applies_to:
+  - codebase_analysis
+  - github_analysis
+variables: {}
+stages:
+  - name: base_patterns
+    type: builtin
+    target: patterns
+    enabled: true
+    uses_history: false
+
+  - name: api_extraction
+    type: custom
+    target: routes
+    uses_history: false
+    enabled: true
+    prompt: >
+      Extract and document all REST API endpoints from the JyotishConnect backend.
+      For each endpoint provide:
+      - HTTP method and path
+      - Authentication requirement (None / JWT Bearer / HMAC webhook)
+      - Request body schema (field name, type, required/optional)
+      - Response schema (success + error cases)
+      - Idempotency support (yes/no)
+      - Business purpose
+
+      Known endpoints to document:
+      POST /auth/login         — phone login, returns JWT
+      GET  /astrologer         — list astrologers
+      GET  /availability       — astrologer availability
+      POST /call/start         — start Agora voice call
+      POST /call/end           — end call + atomic billing
+      POST /wallet/deduct      — manual wallet deduction
+      GET  /callHistory        — user call history
+      POST /payment/success    — direct payment credit
+      POST /webhook/razorpay   — Razorpay payment.captured webhook
+      GET  /metrics            — health + memory metrics
+
+      Output JSON: {"endpoints": [{method, path, auth, request, response,
+      idempotent, description}]}
+
+  - name: usage_examples
+    type: custom
+    target: examples
+    uses_history: true
+    enabled: true
+    prompt: >
+      Based on the extracted API endpoints, create practical usage examples for
+      the JyotishConnect API covering:
+      1. Basic flow: login → list astrologers → start call → end call
+      2. Wallet flow: top-up payment → check balance → deduct
+      3. Webhook flow: Razorpay payment.captured → wallet credit
+      4. Error handling: 401 Unauthorized, insufficient balance, invalid signature
+
+      For each example provide:
+      - curl command or Flutter Dart snippet
+      - Expected request headers and body
+      - Expected response
+      - Common errors and how to handle them
+
+post_process:
+  reorder_sections: []
+  add_metadata:
+    enhanced: true
+    workflow: api-documentation
+    project: jyotishconnect

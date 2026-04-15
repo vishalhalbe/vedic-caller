@@ -1,16 +1,37 @@
 const express = require('express');
 const router = express.Router();
+const auth = require('../middleware/authMiddleware');
+const { Astrologer } = require('../models');
 
-let availability = {};
-
-router.post('/toggle', (req,res)=>{
-  const { astrologer_id, available } = req.body;
-  availability[astrologer_id] = available;
-  res.json({success:true});
+// POST /availability/toggle — set astrologer availability
+router.post('/toggle', auth, async (req, res, next) => {
+  try {
+    const { astrologer_id, available } = req.body;
+    if (!astrologer_id || available === undefined) {
+      return res.status(400).json({ error: 'astrologer_id and available required' });
+    }
+    const [updated] = await Astrologer.update(
+      { is_available: available },
+      { where: { id: astrologer_id } }
+    );
+    if (!updated) return res.status(404).json({ error: 'Astrologer not found' });
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
 });
 
-router.get('/:id', (req,res)=>{
-  res.json({available: availability[req.params.id] || false});
+// GET /availability/:id — check single astrologer availability
+router.get('/:id', async (req, res, next) => {
+  try {
+    const astrologer = await Astrologer.findByPk(req.params.id, {
+      attributes: ['id', 'is_available'],
+    });
+    if (!astrologer) return res.status(404).json({ error: 'Astrologer not found' });
+    res.json({ available: astrologer.is_available });
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;

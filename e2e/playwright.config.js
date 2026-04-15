@@ -1,6 +1,18 @@
-module.exports = {
+// @ts-check
+const { defineConfig } = require('@playwright/test');
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../backend/api/.env') });
+
+module.exports = defineConfig({
   testDir: './tests',
+  timeout: 30_000,
+  retries: process.env.CI ? 2 : 0,
+  workers: 1, // sequential — tests share a real DB
+  reporter: [['html', { outputFolder: 'playwright-report' }], ['list']],
   use: {
-    headless: true
-  }
-};
+    baseURL: process.env.BASE_URL || 'http://localhost:3000',
+    extraHTTPHeaders: {
+      'Content-Type': 'application/json',
+    },
+  },
+});

@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "flutter-skill": {
+      "command": "flutter-skill",
+      "args": ["server"]
+    },
+    "razorpay": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://mcp.razorpay.com/mcp",
+        "--header",
+        "Authorization: Basic cnpwX2xpdmVfU2NRNkwwWlBSZEwxd0s6eU4waUo4QTNYZm1hODZwUzRoVFQ2aFVF"
+      ]
+    }
+  }
+}
