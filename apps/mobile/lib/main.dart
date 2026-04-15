@@ -34,7 +34,7 @@ final _router = GoRouter(
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>;
         return CallScreen(
-          astrologerId: extra['astrologer_id'] as int,
+          astrologerId: extra['astrologer_id'] as String,
           astrologerName: extra['name'] as String,
           rate: (extra['rate'] as num).toDouble(),
         );

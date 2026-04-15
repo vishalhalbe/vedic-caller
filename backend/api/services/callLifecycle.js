@@ -9,6 +9,7 @@ exports.startCall = async (userId, astrologerId, rate) => {
     started_at: new Date(),
     cost: 0,
     duration_seconds: 0,
+    rate_per_minute: rate,   // stored server-side — client cannot manipulate billing
   });
 
   return {
@@ -37,8 +38,9 @@ exports.endCall = async (userId, callId) => {
   return { call, durationSeconds, endedAt };
 };
 
-exports.finaliseCall = async (call, rate, durationSeconds, endedAt) => {
-  const cost = parseFloat(((rate / 60) * durationSeconds).toFixed(2));
+exports.finaliseCall = async (call, durationSeconds, endedAt) => {
+  // Rate is read from the stored call record — client cannot influence billing
+  const cost = parseFloat(((call.rate_per_minute / 60) * durationSeconds).toFixed(2));
 
   await atomicDeduct(call.user_id, cost);
 

@@ -11,10 +11,10 @@ class CallService {
     return Map<String, dynamic>.from(res.data);
   }
 
-  Future<Map<String, dynamic>> endCall(String? callId, double rate) async {
+  // Rate is no longer sent — backend uses the stored rate_per_minute
+  Future<Map<String, dynamic>> endCall(String? callId) async {
     final res = await _api.post('/call/end', data: {
       if (callId != null) 'call_id': callId,
-      'rate': rate,
     });
     return Map<String, dynamic>.from(res.data);
   }

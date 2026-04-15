@@ -7,8 +7,10 @@ module.exports = (sequelize) => {
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
-    phone: { type: DataTypes.STRING, unique: true, allowNull: false },
-    name: { type: DataTypes.STRING, defaultValue: '' },
+    email:         { type: DataTypes.STRING, unique: true, allowNull: true },
+    password_hash: { type: DataTypes.STRING, allowNull: true },
+    phone:         { type: DataTypes.STRING, unique: true, allowNull: true },
+    name:          { type: DataTypes.STRING, defaultValue: '' },
     wallet_balance: { type: DataTypes.DECIMAL(10, 2), defaultValue: 0 },
   }, {
     tableName: 'users',

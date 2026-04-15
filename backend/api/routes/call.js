@@ -61,12 +61,10 @@ router.post('/start', auth, async (req, res, next) => {
 // POST /call/end
 router.post('/end', auth, async (req, res, next) => {
   try {
-    const { call_id, rate } = req.body;
-    if (!rate) return res.status(400).json({ error: 'rate required' });
-
-    const parsedRate = parseFloat(rate);
+    const { call_id } = req.body;
+    // Rate is NOT taken from the client — it was stored server-side at call start
     const { call, durationSeconds, endedAt } = await endCall(req.user.id, call_id);
-    const result = await finaliseCall(call, parsedRate, durationSeconds, endedAt);
+    const result = await finaliseCall(call, durationSeconds, endedAt);
 
     res.json(result);
   } catch (err) {

@@ -2,19 +2,23 @@
 const crypto = require('crypto');
 
 let _counter = Date.now();
-function uniquePhone() {
-  return `+919${String(++_counter).slice(-9).padStart(9, '0')}`;
+function uniqueEmail() {
+  return `e2e_${++_counter}_${Date.now()}@test.jyotishconnect.com`;
 }
+
+const DEFAULT_PASSWORD = 'TestPass99!';
 
 /**
  * Register a new user and return { token, userId }.
  * Each call creates a fresh user so tests stay independent.
  */
 async function register(request) {
-  const phone = uniquePhone();
-  const res = await request.post('/auth/login', { data: { phone } });
+  const email = uniqueEmail();
+  const res = await request.post('/auth/register', {
+    data: { email, password: DEFAULT_PASSWORD },
+  });
   const body = await res.json();
-  return { token: body.token, userId: body.user_id, phone };
+  return { token: body.token, userId: body.user_id, email };
 }
 
 /** Auth header object ready for request.fetch options */
@@ -67,4 +71,4 @@ async function topUpWallet(request, token, amountInr) {
   return { status: confirmRes.status(), balance: confirmed.balance, paymentId, orderId: order.order_id };
 }
 
-module.exports = { register, auth, razorpaySignature, topUpWallet, uniquePhone };
+module.exports = { register, auth, razorpaySignature, topUpWallet, uniqueEmail };

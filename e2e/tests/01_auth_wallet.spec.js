@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { register, auth, topUpWallet } = require('./helpers');
+const { register, auth, topUpWallet, uniqueEmail } = require('./helpers');
 
 test.describe('Auth & Wallet', () => {
   test('POST /auth/login returns a JWT', async ({ request }) => {

@@ -2,12 +2,21 @@
  * Webhook + payment security tests
  */
 const request = require('supertest');
-const app = require('../app');
-const crypto = require('crypto');
+const app     = require('../app');
+const crypto  = require('crypto');
+
+let _seq = 0;
+async function registerAndLogin() {
+  const email    = `phase1_${Date.now()}${++_seq}@example.com`;
+  const password = 'TestPass99';
+  await request(app).post('/auth/register').send({ email, password });
+  const res = await request(app).post('/auth/login').send({ email, password });
+  return `Bearer ${res.body.token}`;
+}
 
 describe('POST /webhook/razorpay', () => {
   it('returns 500 when RAZORPAY_WEBHOOK_SECRET is not set', async () => {
-    const savedSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+    const saved = process.env.RAZORPAY_WEBHOOK_SECRET;
     delete process.env.RAZORPAY_WEBHOOK_SECRET;
 
     const res = await request(app)
@@ -16,13 +25,16 @@ describe('POST /webhook/razorpay', () => {
       .send(JSON.stringify({ event: 'payment.captured' }));
 
     expect(res.status).toBe(500);
-    process.env.RAZORPAY_WEBHOOK_SECRET = savedSecret;
+    process.env.RAZORPAY_WEBHOOK_SECRET = saved;
   });
 
   it('returns 400 for invalid signature', async () => {
     process.env.RAZORPAY_WEBHOOK_SECRET = 'test-webhook-secret';
 
-    const body = JSON.stringify({ event: 'payment.captured', payload: { payment: { entity: {} } } });
+    const body = JSON.stringify({
+      event: 'payment.captured',
+      payload: { payment: { entity: {} } },
+    });
 
     const res = await request(app)
       .post('/webhook/razorpay')
@@ -38,8 +50,8 @@ describe('POST /webhook/razorpay', () => {
     const secret = 'test-webhook-secret';
     process.env.RAZORPAY_WEBHOOK_SECRET = secret;
 
-    const body = JSON.stringify({ event: 'other.event' }); // non-payment event — no DB credit needed
-    const sig = crypto.createHmac('sha256', secret).update(body).digest('hex');
+    const body = JSON.stringify({ event: 'other.event' }); // non-payment — no DB credit
+    const sig  = crypto.createHmac('sha256', secret).update(body).digest('hex');
 
     const res = await request(app)
       .post('/webhook/razorpay')
@@ -60,14 +72,34 @@ describe('POST /payment/success', () => {
   });
 
   it('returns 400 when payment fields are missing', async () => {
-    const loginRes = await request(app).post('/auth/login').send({ phone: '9999600001' });
-    const token = loginRes.body.token;
+    const token = await registerAndLogin();
+    const res   = await request(app)
+      .post('/payment/success')
+      .set('Authorization', token)
+      .send({ amount: 100 }); // missing order_id, payment_id, signature
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 for invalid signature', async () => {
+    const token = await registerAndLogin();
+
+    // Create a real order first
+    const orderRes = await request(app)
+      .post('/payment/create-order')
+      .set('Authorization', token)
+      .send({ amount: 100 });
+    expect(orderRes.status).toBe(200);
 
     const res = await request(app)
       .post('/payment/success')
       .set('Authorization', token)
-      .send({ amount: 100 }); // missing order_id, payment_id, signature
-
+      .send({
+        order_id:   orderRes.body.order_id,
+        payment_id: 'pay_test_fake',
+        signature:  'not_a_valid_hmac',
+        amount:     100,
+      });
     expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/signature/i);
   });
 });
