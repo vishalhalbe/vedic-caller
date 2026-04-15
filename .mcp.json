@@ -1,5 +1,9 @@
 {
   "mcpServers": {
+    "flutter-skill": {
+      "command": "flutter-skill",
+      "args": ["server"]
+    },
     "razorpay": {
       "command": "npx",
       "args": [

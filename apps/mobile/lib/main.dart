@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_skill/flutter_skill.dart';
 import 'package:go_router/go_router.dart';
 import 'core/token_storage.dart';
 import 'features/auth/login_screen_v2.dart';
@@ -45,6 +47,8 @@ final _router = GoRouter(
 );
 
 void main() {
+  // flutter-skill: gives AI agents live eyes & hands inside the app (debug only)
+  if (kDebugMode) FlutterSkillBinding.ensureInitialized();
   runApp(const ProviderScope(child: JyotishApp()));
 }
 
