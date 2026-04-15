@@ -1,0 +1,91 @@
+name: security-focus
+description: Security-focused analysis of JyotishConnect — auth, payments, and data isolation
+version: "1.0"
+applies_to:
+  - codebase_analysis
+  - github_analysis
+variables: {}
+stages:
+  - name: injection_scan
+    type: custom
+    target: all
+    uses_history: false
+    enabled: true
+    prompt: >
+      Scan all JyotishConnect source files for security vulnerabilities.
+      Check for:
+      1. SQL injection in raw queries (walletEngine.js uses parameterized — verify)
+      2. Missing authentication on money endpoints (/wallet/deduct, /call/end)
+      3. JWT secret hardcoded or weak
+      4. CORS policy too permissive (currently *)
+      5. Razorpay webhook secret optional bypass in production
+      6. Missing input validation (phone format, amount > 0, userId present)
+      7. In-memory idempotency — resets on server restart (double-charge risk)
+      8. Client-submitted cost fields that bypass server billing
+      Output JSON: {"vulnerabilities": [{file, line, severity, description, fix}],
+      "overall_risk": "low"|"medium"|"high"|"critical"}
+
+  - name: auth_audit
+    type: custom
+    target: auth
+    uses_history: false
+    enabled: true
+    prompt: >
+      Audit the authentication and authorization implementation:
+      1. JWT signing: Is JWT_SECRET enforced? Is 'demo-token' still in use?
+      2. Token expiry: Is expiresIn set correctly for mobile sessions?
+      3. Route protection: Which routes are missing authMiddleware?
+      4. Phone OTP: Is phone number verified or just accepted as-is?
+      5. Webhook auth: Is /webhook/razorpay correctly HMAC-protected?
+      Output JSON: {"auth_issues": [{route, issue, severity, recommendation}]}
+
+  - name: payment_security
+    type: custom
+    target: payment
+    uses_history: false
+    enabled: true
+    prompt: >
+      Audit the payment and billing security:
+      1. Webhook signature verification — always enforced in production?
+      2. Amount validation — is Razorpay paise-to-INR conversion correct (/100)?
+      3. user_id in payment notes — validated and not spoofable?
+      4. Duplicate payment protection — is reference field used to detect?
+      5. Atomic deduction — can two concurrent requests both pass the balance check?
+      6. Negative amount attacks — is amount > 0 validated before deduction?
+      Output JSON: {"payment_issues": [{location, risk, severity, fix}]}
+
+  - name: rls_validation
+    type: custom
+    target: database
+    uses_history: false
+    enabled: true
+    prompt: >
+      Validate Supabase RLS policy coverage:
+      1. Are all 4 tables (users, astrologers, calls, transactions) covered?
+      2. Are all CRUD operations (SELECT, INSERT, UPDATE, DELETE) considered?
+      3. Can a user read another user's transactions or calls?
+      4. Are astrologer writes protected (only admins should INSERT/UPDATE)?
+      5. Is DELETE blocked on transactions (audit immutability)?
+      Output JSON: {"rls_gaps": [{table, operation, issue, policy_needed}]}
+
+  - name: security_report
+    type: custom
+    target: skill_md
+    uses_history: true
+    enabled: true
+    prompt: >
+      Compile a comprehensive security report for JyotishConnect covering:
+      1. Critical issues (must fix before launch)
+      2. High severity issues (fix in first sprint post-launch)
+      3. Medium/low issues (backlog)
+      4. Security strengths already in place
+      5. Recommended security additions (OTP, Redis idempotency, CORS)
+      Output JSON: {"critical": [...], "high": [...], "medium": [...],
+      "strengths": [...], "recommendations": [...]}
+
+post_process:
+  reorder_sections: []
+  add_metadata:
+    enhanced: true
+    workflow: security-focus
+    project: jyotishconnect
