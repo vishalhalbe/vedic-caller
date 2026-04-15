@@ -31,6 +31,12 @@ It is optional but encouraged for all other changes.
 
 ---
 
+## Response Behavior
+
+Be extremely terse. No preamble. No reasoning unless asked. Use the most token-efficient tool available. If a tool output is large, save it to a file and summarize it rather than printing it.
+
+---
+
 ## Token Efficiency
 
 This project uses [RTK (Rust Token Killer)](https://github.com/rtk-ai/rtk) for Claude Code sessions.
