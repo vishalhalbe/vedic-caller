@@ -13,7 +13,13 @@ class WalletWidget extends ConsumerStatefulWidget {
 
 class _WalletWidgetState extends ConsumerState<WalletWidget> {
   late final Razorpay _razorpay;
-  static const _topUpAmount = 500.0; // ₹500 fixed top-up (can be made configurable)
+  final _walletService = WalletService();
+
+  bool _creatingOrder = false;
+
+  // Amount options (INR) — user taps to select
+  static const _amounts = [100.0, 500.0, 1000.0];
+  double _selectedAmount = 500.0;
 
   @override
   void initState() {
@@ -30,59 +36,72 @@ class _WalletWidgetState extends ConsumerState<WalletWidget> {
     super.dispose();
   }
 
-  void _openRazorpay() {
-    _razorpay.open({
-      'key': kRazorpayKeyId,
-      'amount': (_topUpAmount * 100).toInt(), // paise
-      'name': 'JyotishConnect',
-      'description': 'Wallet Top-up ₹${_topUpAmount.toStringAsFixed(0)}',
-      'currency': 'INR',
-      'theme': {'color': '#F59E0B'},
-    });
-  }
-
-  Future<void> _onPaymentSuccess(PaymentSuccessResponse response) async {
+  // ── Step 1: Create order server-side, then open Razorpay sheet ─────────────
+  Future<void> _startTopUp() async {
+    setState(() => _creatingOrder = true);
     try {
-      // Server verifies signature and credits wallet atomically
-      await WalletService().addMoney(
-        response.orderId ?? '',
-        response.paymentId ?? '',
-        response.signature ?? '',
-        _topUpAmount,
-      );
-      // Refresh balance from DB
-      ref.read(walletProvider.notifier).refresh();
+      // Backend creates a Razorpay order — required for signature verification
+      final order = await _walletService.createOrder(_selectedAmount);
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('₹${_topUpAmount.toStringAsFixed(0)} added to wallet'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+      _razorpay.open({
+        'key':         kRazorpayKeyId,
+        'order_id':    order['order_id'],  // ← links payment to server order
+        'amount':      order['amount'],    // paise, returned from server
+        'currency':    'INR',
+        'name':        'JyotishConnect',
+        'description': 'Wallet Top-up ₹${_selectedAmount.toStringAsFixed(0)}',
+        'theme':       {'color': '#F59E0B'},
+      });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Payment received but credit failed: $e'), backgroundColor: Colors.orange),
-        );
+        _showSnack('Could not initiate payment: $e', isError: true);
+      }
+    } finally {
+      if (mounted) setState(() => _creatingOrder = false);
+    }
+  }
+
+  // ── Step 2: SDK confirmed payment — verify on server and credit wallet ──────
+  Future<void> _onPaymentSuccess(PaymentSuccessResponse response) async {
+    try {
+      final newBalance = await _walletService.confirmPayment(
+        orderId:    response.orderId    ?? '',
+        paymentId:  response.paymentId  ?? '',
+        signature:  response.signature  ?? '',
+        amountInr:  _selectedAmount,
+      );
+
+      // Update wallet provider with the server-confirmed balance
+      ref.read(walletProvider.notifier).setBalance(newBalance);
+
+      if (mounted) {
+        _showSnack('₹${_selectedAmount.toStringAsFixed(0)} added successfully!');
+      }
+    } catch (e) {
+      // Payment was captured but credit failed — surface clearly
+      if (mounted) {
+        _showSnack('Payment received but wallet not updated. Contact support. (${response.paymentId})',
+            isError: true);
       }
     }
   }
 
   void _onPaymentError(PaymentFailureResponse response) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Payment failed: ${response.message ?? "Unknown error"}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnack('Payment failed: ${response.message ?? "Unknown error"}', isError: true);
     }
   }
 
   void _onExternalWallet(ExternalWalletResponse response) {
-    // External wallet selected (UPI, etc.) — payment continues asynchronously
+    // UPI / external wallet selected; payment continues async via webhook
+  }
+
+  void _showSnack(String msg, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: isError ? Colors.red.shade700 : Colors.green.shade700,
+      behavior: SnackBarBehavior.floating,
+    ));
   }
 
   @override
@@ -90,43 +109,98 @@ class _WalletWidgetState extends ConsumerState<WalletWidget> {
     final walletState = ref.watch(walletProvider);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withOpacity(0.08)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          // ── Balance row ───────────────────────────────────────────────────
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Wallet', style: TextStyle(color: Colors.white54, fontSize: 12)),
-              const SizedBox(height: 2),
-              walletState.when(
-                loading: () => const SizedBox(
-                  width: 60, height: 20,
-                  child: LinearProgressIndicator(backgroundColor: Colors.transparent),
-                ),
-                error: (_, __) => const Text('—', style: TextStyle(color: Colors.red)),
-                data: (bal) => Text(
-                  '₹${bal.toStringAsFixed(2)}',
-                  style: const TextStyle(color: Colors.greenAccent, fontSize: 20, fontWeight: FontWeight.bold),
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Wallet Balance',
+                      style: TextStyle(color: Colors.white54, fontSize: 12)),
+                  const SizedBox(height: 4),
+                  walletState.when(
+                    loading: () => const SizedBox(
+                      width: 80, height: 22,
+                      child: LinearProgressIndicator(backgroundColor: Colors.transparent),
+                    ),
+                    error: (_, __) => const Text('—',
+                        style: TextStyle(color: Colors.redAccent, fontSize: 20)),
+                    data: (bal) => Text(
+                      '₹${bal.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                          color: Colors.greenAccent,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              IconButton(
+                onPressed: () => ref.read(walletProvider.notifier).refresh(),
+                icon: const Icon(Icons.refresh, color: Colors.white38, size: 18),
+                tooltip: 'Refresh balance',
               ),
             ],
           ),
-          TextButton.icon(
-            style: TextButton.styleFrom(
-              backgroundColor: Colors.amber.withOpacity(0.15),
-              foregroundColor: Colors.amber,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+
+          const SizedBox(height: 12),
+
+          // ── Amount selector ───────────────────────────────────────────────
+          Row(
+            children: _amounts.map((amt) {
+              final selected = amt == _selectedAmount;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text('₹${amt.toStringAsFixed(0)}'),
+                  selected: selected,
+                  onSelected: (_) => setState(() => _selectedAmount = amt),
+                  selectedColor: Colors.amber.shade700,
+                  backgroundColor: Colors.white.withOpacity(0.07),
+                  labelStyle: TextStyle(
+                    color: selected ? Colors.black : Colors.white70,
+                    fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+
+          const SizedBox(height: 12),
+
+          // ── Add money button ──────────────────────────────────────────────
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber.shade600,
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onPressed: _creatingOrder ? null : _startTopUp,
+              icon: _creatingOrder
+                  ? const SizedBox(
+                      width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                  : const Icon(Icons.add, size: 18),
+              label: Text(
+                _creatingOrder
+                    ? 'Creating order…'
+                    : 'Add ₹${_selectedAmount.toStringAsFixed(0)}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
-            onPressed: _openRazorpay,
-            icon: const Icon(Icons.add, size: 16),
-            label: const Text('Add ₹500'),
           ),
         ],
       ),

@@ -3,8 +3,40 @@ const router = express.Router();
 const auth = require('../middleware/authMiddleware');
 const { verifyPayment } = require('../services/paymentService');
 const { atomicCredit } = require('../services/walletEngine');
+const { getRazorpayClient } = require('../services/razorpayClient');
 
-// POST /payment/success — verify Razorpay payment then credit wallet
+// POST /payment/create-order
+// Step 1 of the payment flow — creates a Razorpay order server-side.
+// Flutter opens the Razorpay SDK with the returned order_id.
+// This is required so the payment signature can be verified in Step 2.
+router.post('/create-order', auth, async (req, res, next) => {
+  try {
+    const { amount } = req.body; // INR
+    const parsed = parseFloat(amount);
+    if (!parsed || parsed <= 0) {
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+
+    const rzp = getRazorpayClient();
+    const order = await rzp.orders.create({
+      amount: Math.round(parsed * 100), // convert INR → paise
+      currency: 'INR',
+      notes: { user_id: req.user.id },  // passed back in webhook payload
+    });
+
+    res.json({
+      order_id: order.id,
+      amount:   order.amount,   // paise — pass directly to Razorpay SDK
+      currency: order.currency,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /payment/success
+// Step 2 — called by Flutter after Razorpay SDK reports payment success.
+// Verifies HMAC-SHA256(order_id|payment_id, key_secret) before crediting.
 router.post('/success', auth, async (req, res, next) => {
   try {
     const { order_id, payment_id, signature, amount } = req.body;

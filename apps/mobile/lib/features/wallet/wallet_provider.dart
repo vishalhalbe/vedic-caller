@@ -21,4 +21,8 @@ class WalletNotifier extends StateNotifier<AsyncValue<double>> {
       state = AsyncValue.error(e, st);
     }
   }
+
+  void setBalance(double balance) {
+    state = AsyncValue.data(balance);
+  }
 }
