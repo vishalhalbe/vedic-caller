@@ -336,6 +336,29 @@
 
 ---
 
+### TASK-13 · Migrate MCP servers to ToolHive
+**Files:** `.mcp.json`, `.toolhive/` (new)  
+**Status:** ⬜ Pending  
+**Prerequisite:** Docker installed (✅ already v29.3.1)  
+**Why:** Live Razorpay credentials are currently hardcoded in `.mcp.json` args (Base64-encoded). ToolHive injects secrets from env vars and runs each server in an isolated container — servers cannot access each other or the host filesystem.
+
+**Steps:**
+- [ ] 13.1 Install ToolHive: `curl -fsSL https://github.com/stacklok/toolhive/releases/latest/download/install.sh | sh`
+- [ ] 13.2 Verify: `thv --version`
+- [ ] 13.3 Move Razorpay credentials out of `.mcp.json` into environment/secrets:
+  ```bash
+  export RAZORPAY_MCP_AUTH="Basic cnpwX2xpdmVfU2NRNkwwWlBSZEwxd0s6..."
+  ```
+- [ ] 13.4 Register flutter-skill server with ToolHive: `thv add flutter-skill --cmd "flutter-skill server"`
+- [ ] 13.5 Register razorpay server with secret injection: `thv add razorpay --cmd "npx mcp-remote https://mcp.razorpay.com/mcp" --env RAZORPAY_MCP_AUTH`
+- [ ] 13.6 Update `.mcp.json` to use `thv run` instead of direct commands
+- [ ] 13.7 Verify both MCP servers connect in a new Claude Code session
+- [ ] 13.8 Confirm live key is no longer visible in `.mcp.json`
+
+**Acceptance criteria:** `.mcp.json` contains no credentials. MCP servers start and connect via ToolHive. Razorpay credentials come from env/secrets store only.
+
+---
+
 ## Completed ✅
 
 | Task | Description | Issue |
@@ -381,6 +404,7 @@
 | – | TASK-10 | ⬜ Pending (rate limits) |
 | – | TASK-11 | ⬜ Pending (refresh tokens) |
 | – | TASK-12 | ⬜ Pending (health endpoint) |
+| – | TASK-13 | ⬜ Pending (ToolHive MCP isolation) |
 
 ---
 
@@ -390,7 +414,8 @@
 TASK-01  →  TASK-02  →  TASK-03   (Critical security — do together, ~2h)
 TASK-04                            (Logout — ~30 min)
 TASK-05                            (Redis idempotency — ~45 min)
-TASK-07  →  TASK-08  →  TASK-09   (CI pipeline — ~1h)
+TASK-07  →  TASK-08  →  TASK-09   (CI pipeline — ~1h, DONE ✅)
+TASK-13                            (ToolHive MCP isolation — ~30 min)
 TASK-06                            (Flutter tests — needs Flutter SDK locally)
 TASK-10  →  TASK-11  →  TASK-12   (Polish — pre-launch)
 ```

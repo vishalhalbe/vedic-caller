@@ -14,6 +14,23 @@ See `SKILL.md` for full architecture, API reference, and data model.
 
 ---
 
+## Caveman Rule (Planning Before Code)
+
+**Before writing or editing any code, state your plan in plain English — no jargon.**
+Explain: what file you're changing, what you're doing to it, and why.
+Write it as if explaining to someone who has never seen this codebase.
+
+Example:
+> "I'm going to change `walletEngine.js`. Right now it creates a transaction record
+> with `status: 'pending'` even though the money has already moved. I'll change it
+> to write `status: 'success'` directly, because the record is only inserted inside
+> a transaction that already committed."
+
+This is **mandatory** for any file touching money, auth, or the database schema.
+It is optional but encouraged for all other changes.
+
+---
+
 ## Token Efficiency
 
 This project uses [RTK (Rust Token Killer)](https://github.com/rtk-ai/rtk) for Claude Code sessions.
