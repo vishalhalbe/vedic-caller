@@ -2,10 +2,22 @@ const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
   return sequelize.define('Call', {
-    user_id: DataTypes.INTEGER,
-    astrologer_id: DataTypes.INTEGER,
-    duration: DataTypes.INTEGER,
-    cost: DataTypes.FLOAT,
-    status: DataTypes.STRING
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+    },
+    user_id: { type: DataTypes.UUID, allowNull: false },
+    astrologer_id: { type: DataTypes.UUID, allowNull: false },
+    duration_seconds: { type: DataTypes.INTEGER, defaultValue: 0 },
+    cost: { type: DataTypes.DECIMAL(10, 2), defaultValue: 0 },
+    status: { type: DataTypes.STRING, defaultValue: 'pending' },
+    started_at: { type: DataTypes.DATE },
+    ended_at: { type: DataTypes.DATE },
+  }, {
+    tableName: 'calls',
+    underscored: true,
+    timestamps: true,
+    updatedAt: false,
   });
 };

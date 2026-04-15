@@ -3,17 +3,19 @@ const { Transaction } = require('../models');
 
 exports.atomicDeduct = async (userId, amount) => {
   return await sequelize.transaction(async (t) => {
-    const wallet = await sequelize.query(
-      `SELECT balance FROM wallets WHERE user_id = :userId FOR UPDATE`,
-      { replacements: { userId }, transaction: t }
+    // Pessimistic row-lock on the user row to prevent concurrent over-deductions
+    const [rows] = await sequelize.query(
+      `SELECT wallet_balance FROM users WHERE id = :userId FOR UPDATE`,
+      { replacements: { userId }, transaction: t, type: sequelize.QueryTypes.SELECT }
     );
 
-    const balance = wallet[0][0].balance;
+    if (!rows) throw new Error('User not found');
 
+    const balance = parseFloat(rows.wallet_balance);
     if (balance < amount) throw new Error('Insufficient balance');
 
     await sequelize.query(
-      `UPDATE wallets SET balance = balance - :amount WHERE user_id = :userId`,
+      `UPDATE users SET wallet_balance = wallet_balance - :amount WHERE id = :userId`,
       { replacements: { amount, userId }, transaction: t }
     );
 
@@ -21,9 +23,33 @@ exports.atomicDeduct = async (userId, amount) => {
       user_id: userId,
       amount,
       type: 'debit',
-      status: 'success'
+      status: 'success',
     }, { transaction: t });
 
-    return true;
+    return { remaining: parseFloat((balance - amount).toFixed(2)) };
+  });
+};
+
+exports.atomicCredit = async (userId, amount, reference = '') => {
+  return await sequelize.transaction(async (t) => {
+    await sequelize.query(
+      `UPDATE users SET wallet_balance = wallet_balance + :amount WHERE id = :userId`,
+      { replacements: { amount, userId }, transaction: t }
+    );
+
+    await Transaction.create({
+      user_id: userId,
+      amount,
+      type: 'credit',
+      status: 'success',
+      reference,
+    }, { transaction: t });
+
+    const [rows] = await sequelize.query(
+      `SELECT wallet_balance FROM users WHERE id = :userId`,
+      { replacements: { userId }, transaction: t, type: sequelize.QueryTypes.SELECT }
+    );
+
+    return { balance: parseFloat(rows.wallet_balance) };
   });
 };

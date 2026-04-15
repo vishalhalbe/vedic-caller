@@ -7,6 +7,7 @@ const logger = require('./middleware/logger');
 const rateLimiter = require('./middleware/rateLimiter');
 const errorHandler = require('./middleware/errorHandler');
 const idempotency = require('./middleware/idempotencyMiddleware_v2');
+const authMiddleware = require('./middleware/authMiddleware');
 
 const authRoutes = require('./routes/auth');
 const callRoutes = require('./routes/call');
@@ -20,9 +21,29 @@ const metricsRoutes = require('./routes/metrics');
 
 const app = express();
 
-app.use(cors());
+// CORS — restrict to known origins in production
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:3000', 'http://10.0.2.2:3000']; // dev fallback only
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, Postman)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origin ${origin} not allowed`));
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
+}));
+
 app.use(logger);
 app.use(rateLimiter);
+
+// Webhook MUST be mounted before express.json() — it uses express.raw() internally
+app.use('/webhook', webhookRoutes);
+
+// All other routes use JSON body parsing
 app.use(express.json());
 app.use(idempotency);
 
@@ -35,7 +56,6 @@ app.use('/astrologer', astrologerRoutes);
 app.use('/availability', availabilityRoutes);
 app.use('/callHistory', callHistoryRoutes);
 app.use('/payment', paymentRoutes);
-app.use('/webhook', webhookRoutes);
 app.use('/metrics', metricsRoutes);
 
 app.use(errorHandler);

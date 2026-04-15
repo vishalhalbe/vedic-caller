@@ -1,10 +1,11 @@
-import '../core/api_client_v2.dart';
+import '../core/api_client.dart';
 
 class HistoryService {
-  final api = ApiClient();
+  final _api = ApiClient();
 
-  Future<List> getHistory(int userId) async {
-    final res = await api.get('/callHistory/$userId');
-    return res.data;
+  // Server identifies the user from the JWT — no userId param needed
+  Future<List<dynamic>> getHistory() async {
+    final res = await _api.get('/callHistory');
+    return res.data as List<dynamic>;
   }
 }

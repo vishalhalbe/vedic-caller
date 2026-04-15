@@ -1,20 +1,31 @@
-// Simplified payment flow (no webhook)
 const express = require('express');
 const router = express.Router();
-const Transaction = require('../models/transaction');
+const auth = require('../middleware/authMiddleware');
+const { verifyPayment } = require('../services/paymentService');
+const { atomicCredit } = require('../services/walletEngine');
 
-router.post('/success', async (req, res) => {
-  const { user_id, amount, reference } = req.body;
+// POST /payment/success — verify Razorpay payment then credit wallet
+router.post('/success', auth, async (req, res, next) => {
+  try {
+    const { order_id, payment_id, signature, amount } = req.body;
 
-  await Transaction.create({
-    user_id,
-    amount,
-    type: 'credit',
-    status: 'success',
-    reference
-  });
+    if (!order_id || !payment_id || !signature) {
+      return res.status(400).json({ error: 'order_id, payment_id, and signature required' });
+    }
 
-  res.json({ success: true });
+    const valid = verifyPayment(order_id, payment_id, signature);
+    if (!valid) return res.status(400).json({ error: 'Invalid payment signature' });
+
+    const parsedAmount = parseFloat(amount);
+    if (!parsedAmount || parsedAmount <= 0) {
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+
+    const result = await atomicCredit(req.user.id, parsedAmount, payment_id);
+    res.json({ success: true, balance: result.balance });
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;

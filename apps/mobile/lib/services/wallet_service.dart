@@ -1,13 +1,20 @@
 import '../core/api_client.dart';
 
 class WalletService {
-  final api = ApiClient();
+  final _api = ApiClient();
 
-  Future<void> addMoney(int userId, double amount) async {
-    await api.post('/payment/success', data: {
-      'user_id': userId,
+  Future<double> getBalance() async {
+    final res = await _api.get('/wallet/balance');
+    return (res.data['balance'] as num).toDouble();
+  }
+
+  Future<double> addMoney(String orderId, String paymentId, String signature, double amount) async {
+    final res = await _api.post('/payment/success', data: {
+      'order_id': orderId,
+      'payment_id': paymentId,
+      'signature': signature,
       'amount': amount,
-      'reference': DateTime.now().toString()
     });
+    return (res.data['balance'] as num).toDouble();
   }
 }

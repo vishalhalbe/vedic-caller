@@ -1,45 +1,45 @@
 const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
-const Transaction = require('../models/transaction');
+const { atomicCredit } = require('../services/walletEngine');
 
-router.post('/razorpay', async (req, res) => {
-  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+// Razorpay sends raw body — must parse before express.json() strips it.
+// Mount this route BEFORE express.json() in app.js, or use express.raw() here.
+router.post('/razorpay', express.raw({ type: 'application/json' }), async (req, res, next) => {
+  try {
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
-  if (secret) {
+    if (!secret) {
+      console.error('[webhook] RAZORPAY_WEBHOOK_SECRET not set — rejecting all webhook calls');
+      return res.status(500).json({ error: 'Webhook not configured' });
+    }
+
     const signature = req.headers['x-razorpay-signature'];
-    const body = JSON.stringify(req.body);
-    const expected = crypto.createHmac('sha256', secret).update(body).digest('hex');
+    if (!signature) return res.status(400).json({ error: 'Missing signature header' });
+
+    const rawBody = req.body; // Buffer from express.raw()
+    const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
 
     if (signature !== expected) {
       return res.status(400).json({ error: 'Invalid webhook signature' });
     }
-  }
 
-  const event = req.body;
+    const event = JSON.parse(rawBody);
 
-  try {
     if (event.event === 'payment.captured') {
       const payment = event.payload.payment.entity;
-      const userId = payment.notes?.user_id;
+      const userId  = payment.notes?.user_id;
 
-      if (!userId) {
-        return res.status(400).json({ error: 'Missing user_id in payment notes' });
-      }
+      if (!userId) return res.status(400).json({ error: 'Missing user_id in payment notes' });
 
-      await Transaction.create({
-        user_id: userId,
-        amount: payment.amount / 100,
-        type: 'credit',
-        status: 'success',
-        reference: payment.id
-      });
+      const amountInr = payment.amount / 100; // Razorpay sends paise
+
+      await atomicCredit(userId, amountInr, payment.id);
     }
 
     res.json({ status: 'ok' });
   } catch (err) {
-    console.error('Webhook processing error:', err);
-    res.status(500).json({ error: 'Webhook processing failed' });
+    next(err);
   }
 });
 
