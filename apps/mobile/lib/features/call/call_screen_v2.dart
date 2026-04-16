@@ -108,7 +108,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 
   Future<void> _startCall() async {
     try {
-      final data = await CallService().startCall(widget.astrologerId, widget.rate);
+      final data = await CallService().startCall(widget.astrologerId);
       _callId            = data['call_id']  as String?;
       final channel      = data['channel']  as String;
       final agoraToken   = data['token']    as String;
@@ -152,14 +152,82 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       await _engine.leaveChannel();
     } catch (_) {}
 
+    int?    finalDuration;
+    double? finalCost;
+
     try {
-      await CallService().endCall(_callId);
+      final result = await CallService().endCall(_callId);
+      finalDuration = result['duration'] as int?;
+      finalCost     = (result['cost'] as num?)?.toDouble();
       await ref.read(walletProvider.notifier).refresh();
     } catch (_) {
       // Navigate back regardless — server will eventually time out the call
     }
 
+    if (!mounted) return;
+    await _showCallSummary(
+      duration: finalDuration ?? _seconds,
+      cost:     finalCost ?? (widget.rate / 60) * _seconds,
+    );
+
     if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _showCallSummary({required int duration, required double cost}) async {
+    final m = (duration ~/ 60).toString().padLeft(2, '0');
+    final s = (duration  % 60).toString().padLeft(2, '0');
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF131726),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      isDismissible: false,
+      enableDrag: false,
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 36),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.check_circle_outline, color: Colors.greenAccent, size: 48),
+            const SizedBox(height: 12),
+            const Text('Call Ended',
+                style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _summaryTile(label: 'Duration', value: '$m:$s'),
+                _summaryTile(label: 'Charged',  value: '₹${cost.toStringAsFixed(2)}'),
+              ],
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber.shade600,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _summaryTile({required String label, required String value}) {
+    return Column(children: [
+      Text(label, style: const TextStyle(color: Colors.white54, fontSize: 13)),
+      const SizedBox(height: 4),
+      Text(value, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+    ]);
   }
 
   Future<void> _toggleMute() async {

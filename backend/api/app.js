@@ -65,7 +65,9 @@ app.use('/astrologer', astrologerRoutes);
 app.use('/availability', availabilityRoutes);
 app.use('/callHistory', callHistoryRoutes);
 app.use('/payment', paymentRoutes);
-app.use('/metrics', metricsRoutes);
+// Metrics — internal use only; require admin JWT
+const { requireAdmin } = require('./middleware/authMiddleware');
+app.use('/metrics', authMiddleware, requireAdmin, metricsRoutes);
 
 app.use(errorHandler);
 

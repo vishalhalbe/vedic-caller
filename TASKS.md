@@ -2,7 +2,7 @@
 
 > **Legend:** ✅ Done · 🔴 Critical · 🟠 High · 🟡 Medium · ⬜ Pending
 >
-> Last updated: 2026-04-15 (session 3)  
+> Last updated: 2026-04-16 (session 5)  
 > Branch convention: `fix/<task-id>-<slug>` or work directly on `main` for hotfixes.
 
 ---
@@ -187,11 +187,34 @@
 
 ---
 
-## Priority Order for Next Session
+---
 
-```
-TASK-10   Rate limit hardening on auth endpoints       (~30 min)
-TASK-06   Flutter unit tests under test/               (needs device)
-TASK-13   ToolHive MCP credential isolation            (~30 min)
-TASK-11   Refresh token pattern                        (pre-launch)
-```
+## Session 5 Audit Findings — Fixed
+
+| # | Fix | File(s) |
+|---|-----|---------|
+| A1 | `/metrics` secured with `requireAdmin` | `app.js` |
+| A2 | `RefreshToken` expiry enforced in DB query (not app code) | `routes/auth.js` |
+| A3 | `call_service.dart` no longer sends `rate` field | `services/call_service.dart` |
+| A4 | `callLifecycle.startCall` marks astrologer unavailable atomically (FOR UPDATE) | `services/callLifecycle.js` |
+| A5 | `callLifecycle.finaliseCall` restores `is_available = true` after call ends | `services/callLifecycle.js` |
+| A6 | `call/cleanup` restores astrologer availability for stale calls | `routes/call.js` |
+| A7 | DB migration: UNIQUE partial index preventing two users calling same astrologer | `migrations/20260416_astrologer_active_call_index.sql` |
+| A8 | Post-call summary modal (duration + cost + Done button) | `call_screen_v2.dart` |
+| A9 | `home_screen.dart` stub deleted; router uses `AstrologerListScreen` directly | `main.dart` |
+| A10 | `Dockerfile` + `docker-compose.yml` (API + Postgres + cleanup cron service) | root |
+| A11 | `backend/scripts/cleanup.sh` for bare-metal cron deployment | `scripts/cleanup.sh` |
+| A12 | 2 new integration tests: availability lifecycle, two-user conflict prevention | `tests/integration.test.js` |
+
+## Open / Future
+
+| Task | Description | Priority |
+|------|-------------|----------|
+| PM-01 | Astrologer earnings model (`astrologer_earnings` table, payout tracking) | Pre-launch |
+| PM-02 | Admin dashboard UI (availability toggle, user list, revenue overview) | Post-launch |
+| PM-03 | Wallet custom top-up amount (in addition to ₹100/500/1000 chips) | Medium |
+| PM-04 | Push notifications (astrologer online, call incoming) | Post-launch |
+| PM-05 | Astrologer profile page (bio, specializations, photo) | Medium |
+| DEV-01 | Global 401 handler in Flutter router → auto redirect to `/login` | Medium |
+| DEV-02 | Call history pagination (cursor-based, replace hardcoded LIMIT 50) | Low |
+| TASK-06 | Flutter tests — full run on device/emulator (no SDK locally) | On device |

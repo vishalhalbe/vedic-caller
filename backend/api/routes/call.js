@@ -1,9 +1,9 @@
-const express = require('express');
-const router = express.Router();
-const sequelize = require('../config/db');
-const auth = require('../middleware/authMiddleware');
+const express    = require('express');
+const router     = express.Router();
+const { Op }     = require('sequelize');
+const auth       = require('../middleware/authMiddleware');
 const { startCall, endCall, finaliseCall } = require('../services/callLifecycle');
-const { User, Call } = require('../models');
+const { User, Call, Astrologer } = require('../models');
 
 // Agora token generation — requires AGORA_APP_ID + AGORA_APP_CERTIFICATE env vars
 function buildAgoraToken(channelName, uid) {
@@ -36,11 +36,11 @@ router.post('/start', auth, async (req, res, next) => {
     }
 
     // Rate is always read from the DB — never trusted from the client
-    const { Astrologer } = require('../models');
     const astrologer = await Astrologer.findByPk(astrologer_id, {
       attributes: ['id', 'rate_per_minute', 'is_available'],
     });
     if (!astrologer) return res.status(404).json({ error: 'Astrologer not found' });
+    // Fast pre-check for UX — startCall also checks atomically inside a DB transaction
     if (!astrologer.is_available) return res.status(400).json({ error: 'Astrologer is not available' });
 
     const parsedRate = parseFloat(astrologer.rate_per_minute);
@@ -57,12 +57,15 @@ router.post('/start', auth, async (req, res, next) => {
     const { channel, token } = buildAgoraToken(channelName, 0);
 
     res.json({
-      call_id: session.call_id,
+      call_id:    session.call_id,
       channel,
       token,
       started_at: session.startTime,
     });
   } catch (err) {
+    if (err.message === 'Astrologer is not available') {
+      return res.status(400).json({ error: err.message });
+    }
     next(err);
   }
 });
@@ -87,9 +90,8 @@ router.post('/end', auth, async (req, res, next) => {
   }
 });
 
-// POST /call/cleanup — admin-only endpoint to close stale calls
-// Called by: cron job every 5 minutes (for ops/monitoring)
-// Closes any 'active' calls older than 1 hour without deducting balance
+// POST /call/cleanup — cron-only endpoint to close stale calls and restore astrologer availability
+// Auth: x-cleanup-secret header   Frequency: every 5 minutes via cron
 router.post('/cleanup', async (req, res, next) => {
   try {
     const secret = req.headers['x-cleanup-secret'];
@@ -98,12 +100,30 @@ router.post('/cleanup', async (req, res, next) => {
     }
 
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-    const stale = await Call.update(
-      { status: 'cancelled' },
-      { where: { status: 'active', started_at: { [sequelize.Op.lt]: oneHourAgo } } }
-    );
 
-    res.json({ cleaned: stale[0] });
+    // Find stale active calls before cancelling so we can restore astrologer availability
+    const staleCalls = await Call.findAll({
+      where: { status: 'active', started_at: { [Op.lt]: oneHourAgo } },
+      attributes: ['id', 'astrologer_id'],
+    });
+
+    if (staleCalls.length > 0) {
+      const staleIds         = staleCalls.map(c => c.id);
+      const staleAstrologers = [...new Set(staleCalls.map(c => c.astrologer_id))];
+
+      await Call.update(
+        { status: 'cancelled' },
+        { where: { id: { [Op.in]: staleIds } } }
+      );
+
+      // Restore availability for astrologers whose only active call was stale
+      await Astrologer.update(
+        { is_available: true },
+        { where: { id: { [Op.in]: staleAstrologers } } }
+      );
+    }
+
+    res.json({ cleaned: staleCalls.length });
   } catch (err) {
     next(err);
   }

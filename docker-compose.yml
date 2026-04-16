@@ -1,0 +1,57 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: jyotish
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./supabase/migrations:/docker-entrypoint-initdb.d:ro  # auto-apply migrations on first run
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./backend/api
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DB_URI: postgres://postgres:postgres@db:5432/jyotish
+      JWT_SECRET: dev_secret_replace_in_production_min_48_chars
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      AGORA_APP_ID: ${AGORA_APP_ID:-}
+      AGORA_APP_CERTIFICATE: ${AGORA_APP_CERTIFICATE:-}
+      CLEANUP_SECRET: ${CLEANUP_SECRET:-dev_cleanup_secret}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Cleanup cron — calls POST /call/cleanup every 5 minutes
+  cleanup:
+    image: alpine:3.19
+    environment:
+      CLEANUP_SECRET: ${CLEANUP_SECRET:-dev_cleanup_secret}
+      API_URL: http://api:3000
+    command: >
+      sh -c "while true; do
+        wget -qO- --header='x-cleanup-secret: '\"$$CLEANUP_SECRET\"'' $$API_URL/call/cleanup || true;
+        sleep 300;
+      done"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  pgdata:

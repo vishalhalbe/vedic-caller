@@ -2,6 +2,7 @@ const express        = require('express');
 const router         = express.Router();
 const bcrypt         = require('bcryptjs');
 const crypto         = require('crypto');
+const { Op }         = require('sequelize');
 const { User, RefreshToken } = require('../models');
 const jwt            = require('../services/jwt');
 const auth           = require('../middleware/authMiddleware');
@@ -91,14 +92,16 @@ router.post('/refresh', async (req, res, next) => {
     }
 
     const tokenHash = crypto.createHash('sha256').update(refresh_token).digest('hex');
-    const record    = await RefreshToken.findOne({ where: { token_hash: tokenHash, revoked: false } });
+    const record    = await RefreshToken.findOne({
+      where: {
+        token_hash: tokenHash,
+        revoked:    false,
+        expires_at: { [Op.gt]: new Date() },  // DB enforces expiry atomically
+      },
+    });
 
     if (!record) {
       return res.status(401).json({ error: 'Invalid or expired refresh token' });
-    }
-    if (new Date() > record.expires_at) {
-      await record.update({ revoked: true });
-      return res.status(401).json({ error: 'Refresh token expired' });
     }
 
     // Revoke used token before issuing new one (rotation prevents reuse)

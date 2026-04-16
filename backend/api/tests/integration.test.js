@@ -207,3 +207,62 @@ describe('Astrologer availability guard', () => {
     expect(allAvailable).toBe(true);
   });
 });
+
+describe('Astrologer availability lifecycle', () => {
+  it('astrologer becomes unavailable after call starts, available after call ends', async () => {
+    const { token } = await registerAndLogin();
+
+    const astrologers = await request(app).get('/astrologer');
+    const astro = astrologers.body[0];
+    expect(astro.is_available).toBe(true);
+
+    // Start call — astrologer should become unavailable
+    const startRes = await request(app)
+      .post('/call/start')
+      .set('Authorization', token)
+      .send({ astrologer_id: astro.id });
+    expect(startRes.status).toBe(200);
+
+    const { Astrologer } = require('../models');
+    const duringCall = await Astrologer.findByPk(astro.id, { attributes: ['is_available'] });
+    expect(duringCall.is_available).toBe(false);
+
+    // End call — astrologer should become available again
+    await request(app)
+      .post('/call/end')
+      .set('Authorization', token)
+      .send({ call_id: startRes.body.call_id });
+
+    const afterCall = await Astrologer.findByPk(astro.id, { attributes: ['is_available'] });
+    expect(afterCall.is_available).toBe(true);
+  });
+
+  it('two users cannot call the same astrologer simultaneously', async () => {
+    const user1 = await registerAndLogin();
+    const user2 = await registerAndLogin();
+
+    const astrologers = await request(app).get('/astrologer');
+    const astro = astrologers.body[0];
+
+    // User 1 starts call — marks astrologer unavailable
+    const res1 = await request(app)
+      .post('/call/start')
+      .set('Authorization', user1.token)
+      .send({ astrologer_id: astro.id });
+    expect(res1.status).toBe(200);
+
+    // User 2 tries to call the same astrologer — should be rejected
+    const res2 = await request(app)
+      .post('/call/start')
+      .set('Authorization', user2.token)
+      .send({ astrologer_id: astro.id });
+    expect(res2.status).toBe(400);
+    expect(res2.body.error).toMatch(/not available/i);
+
+    // Cleanup: end user1's call
+    await request(app)
+      .post('/call/end')
+      .set('Authorization', user1.token)
+      .send({ call_id: res1.body.call_id });
+  });
+});

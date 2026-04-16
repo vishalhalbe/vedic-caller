@@ -5,7 +5,6 @@ import 'package:flutter_skill/flutter_skill.dart';
 import 'package:go_router/go_router.dart';
 import 'core/token_storage.dart';
 import 'features/auth/login_screen_v2.dart';
-import 'features/home/home_screen.dart';
 import 'features/astrologer/astrologer_list_screen.dart';
 import 'features/call/call_screen_v2.dart';
 import 'features/history/history_screen.dart';
