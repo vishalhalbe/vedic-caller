@@ -18,7 +18,8 @@ const callHistoryRoutes = require('./routes/callHistory');
 const paymentRoutes = require('./routes/payment_simple');
 const webhookRoutes = require('./routes/webhook_v2');
 const metricsRoutes = require('./routes/metrics');
-const adminRoutes   = require('./routes/admin');
+const adminRoutes          = require('./routes/admin');
+const adminBootstrapRoutes = require('./routes/adminBootstrap');
 
 const app = express();
 app.set('trust proxy', 1); // trust first proxy (for X-Forwarded-For in rate limiting)
@@ -66,6 +67,8 @@ app.use('/astrologer', astrologerRoutes);
 app.use('/availability', availabilityRoutes);
 app.use('/callHistory', callHistoryRoutes);
 app.use('/payment', paymentRoutes);
+// Admin bootstrap — secret-gated, no JWT required (creates first admin)
+app.use('/admin', adminBootstrapRoutes);
 // Admin + metrics — require admin JWT
 const { requireAdmin } = require('./middleware/authMiddleware');
 app.use('/admin',   authMiddleware, requireAdmin, adminRoutes);

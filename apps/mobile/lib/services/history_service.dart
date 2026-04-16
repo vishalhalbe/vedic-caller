@@ -3,9 +3,9 @@ import '../core/api_client.dart';
 class HistoryService {
   final _api = ApiClient();
 
-  // Server identifies the user from the JWT — no userId param needed
-  Future<List<dynamic>> getHistory() async {
-    final res = await _api.get('/callHistory');
-    return res.data as List<dynamic>;
+  // Returns the raw paginated response map: { data: [...], pagination: {...} }
+  Future<Map<String, dynamic>> getHistoryPage({int page = 1, int limit = 20}) async {
+    final res = await _api.get('/callHistory?page=$page&limit=$limit');
+    return res.data as Map<String, dynamic>;
   }
 }

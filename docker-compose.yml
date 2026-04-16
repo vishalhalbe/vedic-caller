@@ -1,5 +1,10 @@
 version: '3.9'
 
+# MIGRATION NOTE: The db service auto-applies migrations from supabase/migrations/
+# on FIRST startup only (postgres initdb.d behaviour). For existing volumes (upgrades),
+# run migrations manually: docker compose exec db psql -U postgres jyotish -f /migrations/<file>.sql
+# Or use: supabase db push
+
 services:
   db:
     image: postgres:16-alpine
@@ -11,12 +16,17 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./supabase/migrations:/docker-entrypoint-initdb.d:ro  # auto-apply migrations on first run
+      - ./supabase/migrations:/docker-entrypoint-initdb.d:ro  # auto-apply on first run only
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 3s
       retries: 10
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   api:
     build: ./backend/api
@@ -26,17 +36,23 @@ services:
       NODE_ENV: development
       PORT: 3000
       DB_URI: postgres://postgres:postgres@db:5432/jyotish
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set — run: export JWT_SECRET=$(openssl rand -hex 48)}
+      JWT_SECRET: "${JWT_SECRET:?JWT_SECRET must be set - run: export JWT_SECRET=$(openssl rand -hex 48)}"
       RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
       RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
       RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
       AGORA_APP_ID: ${AGORA_APP_ID:-}
       AGORA_APP_CERTIFICATE: ${AGORA_APP_CERTIFICATE:-}
       CLEANUP_SECRET: ${CLEANUP_SECRET:-dev_cleanup_secret}
+      ADMIN_SEED_SECRET: ${ADMIN_SEED_SECRET:-}
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
 
   # Nginx reverse proxy with TLS termination
   # Requires SSL certs at ./ssl/fullchain.pem and ./ssl/privkey.pem
@@ -54,6 +70,11 @@ services:
     restart: unless-stopped
     profiles:
       - production   # only starts with: docker compose --profile production up
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
 
   # Cleanup cron — calls POST /call/cleanup every 5 minutes
   cleanup:
@@ -69,6 +90,11 @@ services:
     depends_on:
       - api
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
 
 volumes:
   pgdata:

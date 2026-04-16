@@ -137,10 +137,18 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   }
 
   // ── Call control ───────────────────────────────────────────────────────────
+  // Agora tokens expire after 1 hour — auto-end the call at 55 minutes
+  // to give the user a graceful exit before the token lapses.
+  static const _maxCallSeconds = 55 * 60; // 55 minutes
+
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _seconds++);
+      if (!mounted) return;
+      setState(() => _seconds++);
+      if (_seconds >= _maxCallSeconds && !_ending) {
+        _endCall();
+      }
     });
   }
 

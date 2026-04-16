@@ -42,6 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final storage = TokenStorage();
       await storage.save(tokens.accessToken);
       await storage.saveRefresh(tokens.refreshToken);
+      await storage.saveIsAdmin(tokens.isAdmin);
       if (mounted) context.go('/home');
     } catch (e) {
       setState(() {

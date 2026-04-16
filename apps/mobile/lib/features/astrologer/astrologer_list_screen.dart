@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -22,9 +23,11 @@ class AstrologerListScreen extends ConsumerStatefulWidget {
 class _AstrologerListScreenState extends ConsumerState<AstrologerListScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
+  Timer? _debounce;
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -113,7 +116,12 @@ class _AstrologerListScreenState extends ConsumerState<AstrologerListScreen> {
                   borderSide: BorderSide.none,
                 ),
               ),
-              onChanged: (val) => setState(() => _searchQuery = val.trim()),
+              onChanged: (val) {
+              _debounce?.cancel();
+              _debounce = Timer(const Duration(milliseconds: 300), () {
+                if (mounted) setState(() => _searchQuery = val.trim());
+              });
+            },
             ),
           ),
           // Astrologer list fills remaining space

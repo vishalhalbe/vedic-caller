@@ -9,7 +9,6 @@ module.exports = (sequelize) => {
     },
     email:         { type: DataTypes.STRING, unique: true, allowNull: true },
     password_hash: { type: DataTypes.STRING, allowNull: true },
-    phone:         { type: DataTypes.STRING, unique: true, allowNull: true },
     name:          { type: DataTypes.STRING, defaultValue: '' },
     wallet_balance: { type: DataTypes.DECIMAL(10, 2), defaultValue: 0 },
     is_admin:       { type: DataTypes.BOOLEAN, defaultValue: false },

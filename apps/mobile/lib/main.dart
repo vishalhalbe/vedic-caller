@@ -109,7 +109,8 @@ class JyotishApp extends StatelessWidget {
   }
 }
 
-/// Bottom-tab shell wrapping the three main screens.
+/// Bottom-tab shell wrapping the main screens.
+/// Admin users see an extra Admin tab loaded from secure storage.
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
 
@@ -118,23 +119,35 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  int _index = 0;
+  int  _index   = 0;
+  bool _isAdmin = false;
 
-  static const _screens = [
-    AstrologerListScreen(),
-    HistoryScreen(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    TokenStorage().getIsAdmin().then((v) {
+      if (mounted) setState(() => _isAdmin = v);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final screens = [
+      const AstrologerListScreen(),
+      const HistoryScreen(),
+      if (_isAdmin) const AdminScreen(),
+    ];
+
     return Scaffold(
-      body: _screens[_index],
+      body: screens[_index.clamp(0, screens.length - 1)],
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _index,
+        currentIndex: _index.clamp(0, screens.length - 1),
         onTap: (i) => setState(() => _index = i),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Astrologers'),
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
+        items: [
+          const BottomNavigationBarItem(icon: Icon(Icons.people),  label: 'Astrologers'),
+          const BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
+          if (_isAdmin)
+            const BottomNavigationBarItem(icon: Icon(Icons.admin_panel_settings), label: 'Admin'),
         ],
       ),
     );

@@ -40,10 +40,18 @@ class _WalletWidgetState extends ConsumerState<WalletWidget> {
     super.dispose();
   }
 
+  static const _minAmount = 10.0; // ₹10 minimum top-up
+
   double get _effectiveAmount => _customAmount ?? _selectedAmount;
+
+  bool get _amountValid => _effectiveAmount >= _minAmount;
 
   // ── Step 1: Create order server-side, then open Razorpay sheet ─────────────
   Future<void> _startTopUp() async {
+    if (!_amountValid) {
+      _showSnack('Minimum top-up is ₹${_minAmount.toStringAsFixed(0)}', isError: true);
+      return;
+    }
     setState(() => _creatingOrder = true);
     try {
       // Backend creates a Razorpay order — required for signature verification
@@ -233,7 +241,7 @@ class _WalletWidgetState extends ConsumerState<WalletWidget> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              onPressed: _creatingOrder ? null : _startTopUp,
+              onPressed: (_creatingOrder || !_amountValid) ? null : _startTopUp,
               icon: _creatingOrder
                   ? const SizedBox(
                       width: 16, height: 16,

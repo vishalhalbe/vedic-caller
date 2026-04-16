@@ -3,7 +3,8 @@ import '../core/api_client.dart';
 class AuthTokens {
   final String accessToken;
   final String refreshToken;
-  AuthTokens({required this.accessToken, required this.refreshToken});
+  final bool   isAdmin;
+  AuthTokens({required this.accessToken, required this.refreshToken, this.isAdmin = false});
 }
 
 class AuthService {
@@ -15,8 +16,9 @@ class AuthService {
       'password': password,
     });
     return AuthTokens(
-      accessToken:  res.data['token'] as String,
+      accessToken:  res.data['token']         as String,
       refreshToken: res.data['refresh_token'] as String,
+      isAdmin:      res.data['is_admin']       == true,
     );
   }
 
@@ -27,8 +29,9 @@ class AuthService {
       'name':     name,
     });
     return AuthTokens(
-      accessToken:  res.data['token'] as String,
+      accessToken:  res.data['token']         as String,
       refreshToken: res.data['refresh_token'] as String,
+      isAdmin:      res.data['is_admin']       == true,
     );
   }
 

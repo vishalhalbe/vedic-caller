@@ -14,9 +14,24 @@ async function registerAndLogin() {
   return { token: `Bearer ${res.body.token}`, userId: res.body.user_id };
 }
 
+/** Directly credit wallet in DB — only for tests that need balance to start a call */
+async function giveBalance(userId, amount = 500) {
+  await User.update({ wallet_balance: amount }, { where: { id: userId } });
+}
+
+/** Reset test DB state: cancel active calls and restore astrologer availability */
+async function resetCallState() {
+  const { Astrologer } = require('../models');
+  await Call.update({ status: 'cancelled' }, { where: { status: 'active' } });
+  await Astrologer.update({ is_available: true }, { where: {} });
+}
+
+beforeEach(resetCallState);
+
 describe('Full call flow — start, end, deduction', () => {
   it('completes a call and deducts cost exactly once', async () => {
     const { token, userId } = await registerAndLogin();
+    await giveBalance(userId);
 
     // Get initial balance
     const initRes = await request(app)
@@ -55,7 +70,8 @@ describe('Full call flow — start, end, deduction', () => {
   });
 
   it('retried /call/end does not double-deduct', async () => {
-    const { token } = await registerAndLogin();
+    const { token, userId } = await registerAndLogin();
+    await giveBalance(userId);
 
     const astrologers = await request(app).get('/astrologer');
     const astro = astrologers.body[0];
@@ -129,7 +145,8 @@ describe('Full call flow — start, end, deduction', () => {
   });
 
   it('/call/start reads rate from DB, not client body', async () => {
-    const { token } = await registerAndLogin();
+    const { token, userId } = await registerAndLogin();
+    await giveBalance(userId);
 
     const astrologers = await request(app).get('/astrologer');
     const astro = astrologers.body[0];
@@ -145,10 +162,10 @@ describe('Full call flow — start, end, deduction', () => {
 
     expect(res.status).toBe(200);
 
-    // Verify the actual rate from the DB was used
+    // Verify the actual rate from the DB was used (compare as floats)
     const call = await Call.findByPk(res.body.call_id);
-    expect(parseFloat(call.rate_per_minute)).toBe(astro.rate_per_minute);
-    expect(call.rate_per_minute).not.toBe(0.01);
+    expect(parseFloat(call.rate_per_minute)).toBe(parseFloat(astro.rate_per_minute));
+    expect(parseFloat(call.rate_per_minute)).not.toBe(0.01);
   });
 });
 
@@ -166,7 +183,8 @@ describe('Call state validation', () => {
   });
 
   it('cannot start two concurrent calls', async () => {
-    const { token } = await registerAndLogin();
+    const { token, userId } = await registerAndLogin();
+    await giveBalance(userId);
 
     const astrologers = await request(app).get('/astrologer');
     const astro = astrologers.body[0];
@@ -210,7 +228,8 @@ describe('Astrologer availability guard', () => {
 
 describe('Astrologer availability lifecycle', () => {
   it('astrologer becomes unavailable after call starts, available after call ends', async () => {
-    const { token } = await registerAndLogin();
+    const { token, userId } = await registerAndLogin();
+    await giveBalance(userId);
 
     const astrologers = await request(app).get('/astrologer');
     const astro = astrologers.body[0];
@@ -240,6 +259,8 @@ describe('Astrologer availability lifecycle', () => {
   it('two users cannot call the same astrologer simultaneously', async () => {
     const user1 = await registerAndLogin();
     const user2 = await registerAndLogin();
+    await giveBalance(user1.userId);
+    await giveBalance(user2.userId);
 
     const astrologers = await request(app).get('/astrologer');
     const astro = astrologers.body[0];

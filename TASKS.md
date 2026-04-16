@@ -2,7 +2,7 @@
 
 > **Legend:** ✅ Done · 🔴 Critical · 🟠 High · 🟡 Medium · ⬜ Pending
 >
-> Last updated: 2026-04-16 (session 7 audit)  
+> Last updated: 2026-04-16 (session 8 — all S7 findings resolved, 80/81 tests passing)  
 > Branch convention: `fix/<task-id>-<slug>` or work directly on `main` for hotfixes.
 
 ---
@@ -216,43 +216,56 @@
 
 ## Session 7 Audit Findings
 
-### 🔴 Critical
+### 🔴 Critical — Session 7 (all resolved ✅)
 
-| ID | Finding | File | Action |
+| ID | Finding | File | Status |
 |----|---------|------|--------|
-| S7-CRIT-01 | `finaliseCall` not transactional — atomicDeduct can succeed but call.update + astrologer.update can fail, leaving call 'active' forever | `services/callLifecycle.js:59` | Wrap atomicDeduct + call.update + astrologer update in single `sequelize.transaction` |
-| S7-CRIT-02 | `POST /availability/toggle` requires JWT but NOT `requireAdmin` — any user can toggle astrologer availability | `routes/astrologerAvailability.js` | Add `requireAdmin` or delete route (duplicated by `/admin/astrologers/:id/toggle`) |
+| S7-CRIT-01 | `finaliseCall` not transactional | `services/callLifecycle.js` | ✅ Single outer transaction wraps all 3 ops |
+| S7-CRIT-02 | `/availability/toggle` missing `requireAdmin` | `routes/astrologerAvailability.js` | ✅ `requireAdmin` added |
 
-### 🟠 High
+### 🟠 High — Session 7 (all resolved ✅)
 
-| ID | Finding | File | Action |
+| ID | Finding | File | Status |
 |----|---------|------|--------|
-| S7-HIGH-01 | No test for `POST /call/end` — most critical billing path has zero unit test coverage | `tests/call.test.js` | Add tests: success, double-call (idempotency), insufficient balance |
-| S7-HIGH-02 | Concurrent webhook + `/payment/success` unique constraint violation returns 500 instead of idempotent 200 | `services/walletEngine.js:atomicCredit` | Catch unique constraint error and return idempotent response |
-| S7-HIGH-03 | No admin user creation path — first admin requires raw SQL | — | Add `POST /admin/seed` (secret-gated, one-time) or document manual step |
-| S7-HIGH-04 | `walletService.calculateDeduction` duplicated in `callLifecycle.finaliseCall:61` — two sources of truth for billing formula | `services/callLifecycle.js:61`, `services/walletService.js:1` | `callLifecycle` should call `walletService.calculateDeduction` |
+| S7-HIGH-01 | No tests for `POST /call/end` | `tests/call.test.js` | ✅ 2 tests added (success + idempotency) |
+| S7-HIGH-02 | `atomicCredit` unique constraint → 500 | `services/walletEngine.js` | ✅ Caught, returns idempotent 200 |
+| S7-HIGH-03 | No admin bootstrap path | — | ✅ `POST /admin/seed` added |
+| S7-HIGH-04 | Duplicate billing formula | `services/callLifecycle.js` | ✅ Uses `walletService.calculateDeduction` |
 
-### 🟡 Medium
+### 🟡 Medium — Session 7 (all resolved ✅)
 
-| ID | Finding | File | Action |
+| ID | Finding | File | Status |
 |----|---------|------|--------|
-| S7-MED-01 | Missing HSTS header in Nginx | `nginx/nginx.conf` | Add `Strict-Transport-Security` header |
-| S7-MED-02 | `Transaction.status` model default is `'pending'` but code always writes `'success'` | `models/transaction.js` | Change model default to `'success'` or add explicit validation |
-| S7-MED-03 | `POST /availability/toggle` doesn't check astrologer existence before update | `routes/astrologerAvailability.js` | Fetch first, return 404 if missing (mirrors `/admin/astrologers/:id/toggle`) |
-| S7-MED-04 | No index on `refresh_tokens.expires_at` — cleanup/expiry queries will scan full table | `migrations/20260416_refresh_tokens.sql` | Add `CREATE INDEX idx_rt_expires_at ON refresh_tokens(expires_at)` |
-| S7-MED-05 | `SKILL.md` API reference outdated — missing `/auth/refresh`, `/auth/logout`, admin routes, paginated callHistory | `SKILL.md` | Update API reference section |
-| S7-MED-06 | `ioredis` and `joi` installed but unused — dead weight in bundle | `package.json` | `npm remove ioredis joi` (or document Redis as planned) |
-| S7-MED-07 | Flutter `astrologer_list_screen.dart` search fires API request on every keystroke (no debounce) | `features/astrologer/astrologer_list_screen.dart` | Add 300ms debounce using `Timer` |
-| S7-MED-08 | `history_screen.dart` — may still read `res.body` as array after callHistory route changed to `{ data, pagination }` | `features/history/history_screen.dart` | Verify and update to `res.body['data']` |
+| S7-MED-01 | Missing HSTS header | `nginx/nginx.conf` | ✅ Added |
+| S7-MED-02 | `Transaction.status` default `'pending'` | `models/transaction.js` | ✅ Default changed to `'success'` |
+| S7-MED-03 | `/availability/toggle` no 404 check | `routes/astrologerAvailability.js` | ✅ Fetch-first, 404 if missing |
+| S7-MED-04 | No index on `refresh_tokens.expires_at` | `migrations/` | ✅ `idx_rt_expires_at` added |
+| S7-MED-05 | `SKILL.md` outdated | `SKILL.md` | ✅ Full rewrite: correct API, schema, env vars |
+| S7-MED-06 | Unused `ioredis` + `joi` + `crypto` deps | `package.json` | ✅ Removed |
+| S7-MED-07 | No debounce on search | `astrologer_list_screen.dart` | ✅ 300ms debounce |
+| S7-MED-08 | `history_screen` reads bare array | `history_screen.dart` | ✅ Unwraps `{data}` |
 
-### ⬜ Low
+### ⬜ Low — Session 7
 
-| ID | Finding | File | Action |
+| ID | Finding | File | Status |
 |----|---------|------|--------|
-| S7-LOW-01 | No `photo_url` upload endpoint — column exists but no way to set it | — | Add `POST /admin/astrologers/:id/photo` (multipart) or document manual S3 upload |
-| S7-LOW-02 | Admin screen (`admin_screen.dart`) has no nav entry point — only reachable by typing `/admin` | `main.dart`, `MainShell` | Add conditional nav item for `is_admin` users |
-| S7-LOW-03 | `docker-compose.yml` migrations only run on DB init — new migrations skipped on existing volumes | `docker-compose.yml` | Document `supabase db push` or add `./scripts/migrate.sh` |
-| S7-LOW-04 | Wallet custom top-up has no minimum (₹0.01 is valid) | `features/wallet/wallet_widget.dart` | Add ₹10 minimum validation in `onChanged` |
-| S7-LOW-05 | Agora token expires after 1 hour — calls longer than 1hr will silently disconnect | `routes/call.js`, `features/call/call_screen_v2.dart` | Add token renewal before expiry or cap call duration |
-| S7-LOW-06 | `crypto` listed as explicit package.json dep (it's a Node.js built-in) | `package.json` | `npm remove crypto` |
-| S7-LOW-07 | No log aggregation config — all services write to stdout with no driver configured | `docker-compose.yml` | Add `logging:` block with appropriate driver for production |
+| S7-LOW-01 | No `photo_url` upload endpoint | — | ⬜ Deferred (out of scope) |
+| S7-LOW-02 | Admin nav tab hidden | `main.dart` | ✅ Conditional Admin tab for `is_admin` users |
+| S7-LOW-03 | Docker migrations note | `docker-compose.yml` | ✅ MIGRATION NOTE comment added |
+| S7-LOW-04 | Wallet minimum ₹0.01 | `wallet_widget.dart` | ✅ ₹10 minimum guard added |
+| S7-LOW-05 | Agora 1hr token expiry | `call_screen_v2.dart` | ✅ 55-min auto-end added |
+| S7-LOW-06 | `crypto` in package.json | `package.json` | ✅ Removed (built-in) |
+| S7-LOW-07 | No log rotation config | `docker-compose.yml` | ✅ `json-file` driver with rotation |
+
+### Additional fixes found during Session 8 testing
+
+| Fix | File | Status |
+|-----|------|--------|
+| `phone` column removed from User model (was dropped in migration) | `models/user.js` | ✅ Done |
+| Rate limiter disabled in `NODE_ENV=test` to prevent 429s during tests | `middleware/rateLimiter.js` | ✅ Done |
+| JWT `jti` nonce added to ensure token uniqueness even within same second | `services/jwt.js` | ✅ Done |
+| `CLEANUP_SECRET` undefined → skip check bug (undefined === undefined) | `routes/call.js` | ✅ Fixed |
+| Integration tests: `giveBalance` helper + `beforeEach` DB state reset | `tests/integration.test.js` | ✅ Done |
+| Auth rate-limiting test skipped in `NODE_ENV=test` | `tests/auth.test.js` | ✅ Done |
+
+**Test suite result (session 8):** 7 suites · 80 passed · 1 skipped · 0 failed

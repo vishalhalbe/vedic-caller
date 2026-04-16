@@ -12,7 +12,7 @@ const MIN_PASS    = 8;
 const REFRESH_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days in ms
 
 // Helper: issue access JWT (15min) + refresh token (30d, stored as hash in DB)
-async function issueTokens(userId, email) {
+async function issueTokens(userId, email, isAdmin = false) {
   const token      = jwt.signAccess({ id: userId, email });
   const rawRefresh = crypto.randomBytes(32).toString('hex');
   const tokenHash  = crypto.createHash('sha256').update(rawRefresh).digest('hex');
@@ -20,7 +20,7 @@ async function issueTokens(userId, email) {
 
   await RefreshToken.create({ user_id: userId, token_hash: tokenHash, expires_at: expiresAt });
 
-  return { token, refresh_token: rawRefresh, user_id: userId };
+  return { token, refresh_token: rawRefresh, user_id: userId, is_admin: isAdmin };
 }
 
 // POST /auth/register
@@ -48,7 +48,7 @@ router.post('/register', async (req, res, next) => {
       wallet_balance: 0,
     });
 
-    const result = await issueTokens(user.id, user.email);
+    const result = await issueTokens(user.id, user.email, user.is_admin === true);
     res.status(201).json(result);
   } catch (err) {
     next(err);
@@ -74,7 +74,7 @@ router.post('/login', async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const result = await issueTokens(user.id, user.email);
+    const result = await issueTokens(user.id, user.email, user.is_admin === true);
     res.json(result);
   } catch (err) {
     next(err);

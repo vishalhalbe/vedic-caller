@@ -1,6 +1,7 @@
 const sequelize = require('../config/db');
 const { Call, Astrologer } = require('../models');
 const { atomicDeduct } = require('./walletEngine');
+const { calculateDeduction } = require('./walletService'); // single source of truth for billing
 
 exports.startCall = async (userId, astrologerId, rate) => {
   return await sequelize.transaction(async (t) => {
@@ -13,7 +14,6 @@ exports.startCall = async (userId, astrologerId, rate) => {
     if (!rows) throw new Error('Astrologer not found');
     if (!rows.is_available) throw new Error('Astrologer is not available');
 
-    // Mark astrologer busy for the duration of the call
     await Astrologer.update(
       { is_available: false },
       { where: { id: astrologerId }, transaction: t }
@@ -26,16 +26,16 @@ exports.startCall = async (userId, astrologerId, rate) => {
       started_at:       new Date(),
       cost:             0,
       duration_seconds: 0,
-      rate_per_minute:  rate,   // stored server-side — client cannot manipulate billing
+      rate_per_minute:  rate,
     }, { transaction: t });
 
     return {
-      call_id:      call.id,
+      call_id:   call.id,
       userId,
       astrologerId,
       rate,
-      startTime:    call.started_at.getTime(),
-      status:       'active',
+      startTime: call.started_at.getTime(),
+      status:    'active',
     };
   });
 };
@@ -57,28 +57,31 @@ exports.endCall = async (userId, callId) => {
 };
 
 exports.finaliseCall = async (call, durationSeconds, endedAt) => {
-  // Rate is read from the stored call record — client cannot influence billing
-  const cost = parseFloat(((call.rate_per_minute / 60) * durationSeconds).toFixed(2));
+  // Single transaction wraps deduction + call update + astrologer update.
+  // If any step fails the entire operation rolls back — user is never charged
+  // without the call being marked completed.
+  return await sequelize.transaction(async (t) => {
+    // calculateDeduction is the single source of truth for the billing formula.
+    const cost = parseFloat(calculateDeduction(call.rate_per_minute, durationSeconds).toFixed(2));
 
-  // Reference tied to call.id so a retried /call/end cannot double-deduct.
-  // The UNIQUE constraint on transactions.reference blocks the second deduction.
-  await atomicDeduct(call.user_id, cost, `call_end_${call.id}`);
+    // Reference tied to call.id — retried /call/end cannot double-deduct.
+    await atomicDeduct(call.user_id, cost, `call_end_${call.id}`, t);
 
-  await call.update({
-    status:           'completed',
-    ended_at:         endedAt,
-    duration_seconds: durationSeconds,
-    cost,
+    await call.update({
+      status:           'completed',
+      ended_at:         endedAt,
+      duration_seconds: durationSeconds,
+      cost,
+    }, { transaction: t });
+
+    await Astrologer.update(
+      {
+        is_available:     true,
+        earnings_balance: sequelize.literal(`earnings_balance + ${cost}`),
+      },
+      { where: { id: call.astrologer_id }, transaction: t }
+    );
+
+    return { duration: durationSeconds, cost };
   });
-
-  // Credit the astrologer's earnings and restore availability
-  await Astrologer.update(
-    {
-      is_available:      true,
-      earnings_balance:  sequelize.literal(`earnings_balance + ${cost}`),
-    },
-    { where: { id: call.astrologer_id } }
-  );
-
-  return { duration: durationSeconds, cost };
 };

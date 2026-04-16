@@ -95,7 +95,8 @@ router.post('/end', auth, async (req, res, next) => {
 router.post('/cleanup', async (req, res, next) => {
   try {
     const secret = req.headers['x-cleanup-secret'];
-    if (secret !== process.env.CLEANUP_SECRET) {
+    const expected = process.env.CLEANUP_SECRET;
+    if (!expected || secret !== expected) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 

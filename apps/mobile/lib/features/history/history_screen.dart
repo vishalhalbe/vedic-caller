@@ -14,7 +14,7 @@ String _formatDate(String? isoString) {
   if (isoString == null) return '';
   final dt = DateTime.tryParse(isoString)?.toLocal();
   if (dt == null) return '';
-  final now = DateTime.now();
+  final now   = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
   final callDay = DateTime(dt.year, dt.month, dt.day);
   final hour = dt.hour.toString().padLeft(2, '0');
@@ -24,9 +24,10 @@ String _formatDate(String? isoString) {
   return '${dt.day}/${dt.month}/${dt.year} $hour:$min';
 }
 
+// Provider returns the data array; pagination metadata ignored for now (single page).
 final historyProvider = FutureProvider<List<dynamic>>((ref) async {
-  // JWT identity used server-side — no hardcoded userId
-  return HistoryService().getHistory();
+  final page = await HistoryService().getHistoryPage();
+  return (page['data'] as List<dynamic>?) ?? [];
 });
 
 class HistoryScreen extends ConsumerWidget {
@@ -57,11 +58,11 @@ class HistoryScreen extends ConsumerWidget {
                 child: ListView.builder(
                   itemCount: calls.length,
                   itemBuilder: (_, i) {
-                    final c = calls[i];
+                    final c        = calls[i];
                     final duration = c['duration_seconds'] ?? 0;
-                    final cost = (c['cost'] as num?)?.toDouble() ?? 0.0;
+                    final cost     = (c['cost'] as num?)?.toDouble() ?? 0.0;
                     final astrologer = c['Astrologer']?['name'] ?? 'Astrologer';
-                    final dateStr = _formatDate(c['created_at'] as String?);
+                    final dateStr  = _formatDate(c['created_at'] as String?);
                     return ListTile(
                       leading: const Icon(Icons.call, color: Colors.greenAccent),
                       title: Text(astrologer, style: const TextStyle(color: Colors.white)),
@@ -79,7 +80,9 @@ class HistoryScreen extends ConsumerWidget {
                       isThreeLine: dateStr.isNotEmpty,
                       trailing: Text(c['status'] ?? '',
                           style: TextStyle(
-                            color: c['status'] == 'completed' ? Colors.greenAccent : Colors.orange,
+                            color: c['status'] == 'completed'
+                                ? Colors.greenAccent
+                                : Colors.orange,
                           )),
                     );
                   },

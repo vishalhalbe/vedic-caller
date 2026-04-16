@@ -10,7 +10,7 @@ module.exports = (sequelize) => {
     user_id: { type: DataTypes.UUID, allowNull: false },
     amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
     type: { type: DataTypes.STRING, allowNull: false, defaultValue: 'credit' },
-    status: { type: DataTypes.STRING, allowNull: false, defaultValue: 'pending' },
+    status: { type: DataTypes.STRING, allowNull: false, defaultValue: 'success' },
     reference: { type: DataTypes.STRING, defaultValue: '' },
   }, {
     tableName: 'transactions',

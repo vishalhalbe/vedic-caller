@@ -1,12 +1,13 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/// Stores JWT access + refresh tokens in platform secure storage:
+/// Stores JWT access + refresh tokens and is_admin flag in platform secure storage:
 /// - iOS: Keychain
 /// - Android: EncryptedSharedPreferences / Keystore
 class TokenStorage {
-  static const _accessKey  = 'jwt_token';
-  static const _refreshKey = 'jwt_refresh_token';
-  static const _storage    = FlutterSecureStorage(
+  static const _accessKey   = 'jwt_token';
+  static const _refreshKey  = 'jwt_refresh_token';
+  static const _isAdminKey  = 'is_admin';
+  static const _storage     = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
   );
 
@@ -20,9 +21,18 @@ class TokenStorage {
   Future<String?> getRefresh()              => _storage.read(key: _refreshKey);
   Future<void>    deleteRefresh()           => _storage.delete(key: _refreshKey);
 
-  /// Delete both tokens — call on logout.
+  // Admin flag — persisted from login/register response
+  Future<void> saveIsAdmin(bool v) =>
+      _storage.write(key: _isAdminKey, value: v ? '1' : '0');
+  Future<bool> getIsAdmin() async {
+    final v = await _storage.read(key: _isAdminKey);
+    return v == '1';
+  }
+
+  /// Delete all stored values — call on logout.
   Future<void> deleteAll() async {
     await _storage.delete(key: _accessKey);
     await _storage.delete(key: _refreshKey);
+    await _storage.delete(key: _isAdminKey);
   }
 }
