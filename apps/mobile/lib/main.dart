@@ -14,8 +14,10 @@ import 'services/auth_service.dart';
 
 /// Call from any screen to log the user out.
 Future<void> logoutUser(WidgetRef ref, BuildContext context) async {
-  await AuthService().logout();
-  await TokenStorage().delete();
+  final storage      = TokenStorage();
+  final refreshToken = await storage.getRefresh();
+  await AuthService().logout(refreshToken: refreshToken);
+  await storage.deleteAll();
   ref.invalidate(walletProvider);
   if (context.mounted) context.go('/login');
 }

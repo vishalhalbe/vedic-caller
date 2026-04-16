@@ -10,7 +10,7 @@
         "mcp-remote",
         "https://mcp.razorpay.com/mcp",
         "--header",
-        "Authorization: Basic cnpwX2xpdmVfU2NRNkwwWlBSZEwxd0s6eU4waUo4QTNYZm1hODZwUzRoVFQ2aFVF"
+        "Authorization: Basic ${RAZORPAY_MCP_TOKEN}"
       ]
     }
   }

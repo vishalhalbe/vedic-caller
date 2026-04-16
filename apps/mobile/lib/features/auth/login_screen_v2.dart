@@ -34,12 +34,14 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() { _loading = true; _error = null; });
 
     try {
-      final svc = AuthService();
-      final token = _isRegister
+      final svc    = AuthService();
+      final tokens = _isRegister
           ? await svc.register(_email.text, _password.text, name: _name.text.trim())
           : await svc.login(_email.text, _password.text);
 
-      await TokenStorage().save(token);
+      final storage = TokenStorage();
+      await storage.save(tokens.accessToken);
+      await storage.saveRefresh(tokens.refreshToken);
       if (mounted) context.go('/home');
     } catch (e) {
       setState(() {

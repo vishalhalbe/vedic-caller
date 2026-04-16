@@ -102,29 +102,25 @@
 ### TASK-11 · Refresh token pattern (full JWT revocation)
 **Issue:** #18 follow-up  
 **Files:** `backend/api/routes/auth.js`, new migration  
-**Status:** ⬜ Pending — pre-launch, no urgency yet
+**Status:** ✅ Done
 
-**Steps:**
-- [ ] 11.1 Add `refresh_tokens` table (id, user_id, token_hash, expires_at, revoked)
-- [ ] 11.2 `POST /auth/login` — issue short-lived access token (15 min) + refresh token (30d, stored in DB)
-- [ ] 11.3 `POST /auth/refresh` — validates refresh token, issues new access token
-- [ ] 11.4 `POST /auth/logout` — marks refresh token as revoked
-- [ ] 11.5 Update Flutter to store refresh token and call `/auth/refresh` on 401
-- [ ] 11.6 Tests for all three endpoints
+- [x] 11.1 Add `refresh_tokens` table (`supabase/migrations/20260416_refresh_tokens.sql`)
+- [x] 11.2 `POST /auth/login` — access token (15min) + refresh token (30d, stored as SHA-256 hash)
+- [x] 11.3 `POST /auth/refresh` — validates refresh token, issues new access + refresh (rotation)
+- [x] 11.4 `POST /auth/logout` — marks refresh token as revoked
+- [x] 11.5 Flutter: `TokenStorage` stores both tokens; `ApiClient` auto-refreshes on 401
+- [x] 11.6 Tests: 6 new tests in `auth.test.js` covering refresh, reuse prevention, logout revocation
 
 ---
 
-### TASK-13 · Migrate MCP servers to ToolHive (credential security)
+### TASK-13 · Remove hardcoded credential from .mcp.json
 **Files:** `.mcp.json`  
-**Status:** ⬜ Pending  
-**Why:** Live Razorpay credentials are hardcoded in `.mcp.json` args (Base64-encoded).
+**Status:** ✅ Done (simplified — no ToolHive dependency)  
+**Why:** Live Razorpay credentials were hardcoded in `.mcp.json` args (Base64-encoded).
 
-**Steps:**
-- [ ] 13.1 Install ToolHive: `curl -fsSL https://github.com/stacklok/toolhive/releases/latest/download/install.sh | sh`
-- [ ] 13.2 Move credentials to env/secrets store
-- [ ] 13.3 Register MCP servers via ToolHive with `--env` injection
-- [ ] 13.4 Update `.mcp.json` to use `thv run`
-- [ ] 13.5 Verify MCP servers connect; confirm no creds in `.mcp.json`
+- [x] 13.1 Replaced hardcoded token with `${RAZORPAY_MCP_TOKEN}` env var reference in `.mcp.json`
+- [x] 13.2 Added `RAZORPAY_MCP_TOKEN` to `.env.example` with instructions
+- Note: Full ToolHive integration deferred — env var substitution is sufficient for now
 
 ---
 
@@ -132,6 +128,8 @@
 
 | Task | Description | Issue |
 |------|-------------|-------|
+| TASK-11 | Refresh token pattern — 15min access + 30d refresh, rotation, revocation | #18 |
+| TASK-13 | Remove hardcoded Razorpay cred from `.mcp.json` → env var | – |
 | TASK-10 | Auth rate limiting — 10 req/15min per IP on `/auth/*` | – |
 | UX-01 | Call button disabled + "Add funds" hint when balance < rate | – |
 | UX-02 | Low-balance warning banner in call screen (<60s remaining) | – |

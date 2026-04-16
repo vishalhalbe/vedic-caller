@@ -126,3 +126,79 @@ describe('POST /auth/logout', () => {
     expect(res.body.success).toBe(true);
   });
 });
+
+describe('Refresh token (TASK-11)', () => {
+  let accessToken, refreshToken;
+
+  beforeAll(async () => {
+    const email = `refresh_test_${Date.now()}@example.com`;
+    const res = await request(app).post('/auth/register').send({ email, password: 'RefreshPass99' });
+    accessToken  = res.body.token;
+    refreshToken = res.body.refresh_token;
+  });
+
+  it('login returns both token and refresh_token', () => {
+    expect(accessToken).toBeDefined();
+    expect(accessToken.split('.').length).toBe(3); // JWT structure
+    expect(refreshToken).toBeDefined();
+    expect(typeof refreshToken).toBe('string');
+    expect(refreshToken.length).toBe(64); // 32 bytes hex
+  });
+
+  it('POST /auth/refresh issues new access token', async () => {
+    const res = await request(app)
+      .post('/auth/refresh')
+      .send({ refresh_token: refreshToken });
+    expect(res.status).toBe(200);
+    expect(res.body.token).toBeDefined();
+    expect(res.body.refresh_token).toBeDefined();
+    // New tokens must differ from the originals (rotation)
+    expect(res.body.token).not.toBe(accessToken);
+    expect(res.body.refresh_token).not.toBe(refreshToken);
+    // Update for next test
+    refreshToken = res.body.refresh_token;
+  });
+
+  it('used refresh token is revoked — cannot reuse', async () => {
+    // Save current refresh token, then refresh to rotate it
+    const used = refreshToken;
+    const rotateRes = await request(app)
+      .post('/auth/refresh')
+      .send({ refresh_token: used });
+    expect(rotateRes.status).toBe(200);
+    refreshToken = rotateRes.body.refresh_token;
+
+    // The 'used' token is now revoked
+    const res = await request(app)
+      .post('/auth/refresh')
+      .send({ refresh_token: used });
+    expect(res.status).toBe(401);
+  });
+
+  it('invalid refresh token returns 401', async () => {
+    const res = await request(app)
+      .post('/auth/refresh')
+      .send({ refresh_token: 'a'.repeat(64) });
+    expect(res.status).toBe(401);
+  });
+
+  it('missing refresh_token body returns 400', async () => {
+    const res = await request(app).post('/auth/refresh').send({});
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/refresh_token required/i);
+  });
+
+  it('logout with refresh_token revokes it', async () => {
+    const tokenBearer = `Bearer ${accessToken}`;
+    await request(app)
+      .post('/auth/logout')
+      .set('Authorization', tokenBearer)
+      .send({ refresh_token: refreshToken });
+
+    // Token should now be revoked
+    const res = await request(app)
+      .post('/auth/refresh')
+      .send({ refresh_token: refreshToken });
+    expect(res.status).toBe(401);
+  });
+});
