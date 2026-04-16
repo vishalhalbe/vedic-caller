@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
+const sequelize = require('../config/db');
 const auth = require('../middleware/authMiddleware');
 const { startCall, endCall, finaliseCall } = require('../services/callLifecycle');
-const { User } = require('../models');
+const { User, Call } = require('../models');
 
 // Agora token generation — requires AGORA_APP_ID + AGORA_APP_CERTIFICATE env vars
 function buildAgoraToken(channelName, uid) {
@@ -82,6 +83,28 @@ router.post('/end', auth, async (req, res, next) => {
     if (err.message === 'Insufficient balance') {
       return res.status(400).json({ error: err.message });
     }
+    next(err);
+  }
+});
+
+// POST /call/cleanup — admin-only endpoint to close stale calls
+// Called by: cron job every 5 minutes (for ops/monitoring)
+// Closes any 'active' calls older than 1 hour without deducting balance
+router.post('/cleanup', async (req, res, next) => {
+  try {
+    const secret = req.headers['x-cleanup-secret'];
+    if (secret !== process.env.CLEANUP_SECRET) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const stale = await Call.update(
+      { status: 'cancelled' },
+      { where: { status: 'active', started_at: { [sequelize.Op.lt]: oneHourAgo } } }
+    );
+
+    res.json({ cleaned: stale[0] });
+  } catch (err) {
     next(err);
   }
 });

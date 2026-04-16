@@ -68,6 +68,30 @@ describe('GET /astrologer', () => {
   });
 });
 
+describe('POST /call/cleanup', () => {
+  it('returns 401 without cleanup secret', async () => {
+    const res = await request(app).post('/call/cleanup');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 401 with wrong secret', async () => {
+    const res = await request(app)
+      .post('/call/cleanup')
+      .set('x-cleanup-secret', 'wrong');
+    expect(res.status).toBe(401);
+  });
+
+  it('closes stale active calls with correct secret', async () => {
+    process.env.CLEANUP_SECRET = 'test-cleanup-secret';
+    const res = await request(app)
+      .post('/call/cleanup')
+      .set('x-cleanup-secret', 'test-cleanup-secret');
+    expect(res.status).toBe(200);
+    expect(typeof res.body.cleaned).toBe('number');
+    delete process.env.CLEANUP_SECRET;
+  });
+});
+
 describe('GET /callHistory', () => {
   it('returns 401 without auth', async () => {
     const res = await request(app).get('/callHistory');
