@@ -117,11 +117,22 @@ router.post('/cleanup', async (req, res, next) => {
         { where: { id: { [Op.in]: staleIds } } }
       );
 
-      // Restore availability for astrologers whose only active call was stale
-      await Astrologer.update(
-        { is_available: true },
-        { where: { id: { [Op.in]: staleAstrologers } } }
-      );
+      // Restore availability only for astrologers with NO remaining active calls.
+      // An astrologer could have a second, non-stale active call started after the stale one.
+      const stillBusy = await Call.findAll({
+        where:      { astrologer_id: { [Op.in]: staleAstrologers }, status: 'active' },
+        attributes: ['astrologer_id'],
+        raw:        true,
+      });
+      const busyIds = new Set(stillBusy.map(c => c.astrologer_id));
+      const toFree  = staleAstrologers.filter(id => !busyIds.has(id));
+
+      if (toFree.length > 0) {
+        await Astrologer.update(
+          { is_available: true },
+          { where: { id: { [Op.in]: toFree } } }
+        );
+      }
     }
 
     res.json({ cleaned: staleCalls.length });

@@ -269,3 +269,30 @@
 | Auth rate-limiting test skipped in `NODE_ENV=test` | `tests/auth.test.js` | ✅ Done |
 
 **Test suite result (session 8):** 7 suites · 80 passed · 1 skipped · 0 failed
+
+---
+
+## Session 8 Audit Findings
+
+### 🟠 High
+
+| ID | Finding | File | Status |
+|----|---------|------|--------|
+| S8-HIGH-01 | Cleanup endpoint restores astrologer availability without checking for other active calls | `routes/call.js:120` | ✅ Fixed — check remaining active calls before marking available |
+| S8-HIGH-02 | No `process.on('unhandledRejection')` handler — async errors crash silently | `app.js` | ✅ Fixed — logs + exits on unhandled rejection |
+
+### 🟡 Medium
+
+| ID | Finding | File | Status |
+|----|---------|------|--------|
+| S8-MED-01 | Cleanup race: SELECT stale → UPDATE cancelled → set available is not atomic | `routes/call.js` | ⬜ Low priority — cleanup runs every 5min, window is tiny |
+| S8-MED-02 | Idempotency middleware caches error responses (500) — retry with same key gets cached error | `middleware/idempotencyMiddleware_v2.js` | ⬜ Low impact — payment idempotency backed by DB; middleware is best-effort |
+| S8-MED-03 | Admin toggle endpoint missing try-catch in Flutter UI | `admin_screen.dart` | ⬜ Deferred |
+
+### ⬜ Low
+
+| ID | Finding | File | Status |
+|----|---------|------|--------|
+| S8-LOW-01 | `GET /astrologer` has no pagination — will slow as catalog grows | `routes/astrologer.js` | ⬜ Deferred until > 100 astrologers |
+| S8-LOW-02 | Agora 55-min limit hardcoded in client — server token TTL not returned | `routes/call.js`, `call_screen_v2.dart` | ⬜ Documented limitation |
+| S8-LOW-03 | Double email lowercasing (client + server) — harmless but redundant | `auth_service.dart` | ⬜ Deferred |

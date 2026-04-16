@@ -78,6 +78,12 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 
+// Catch any unhandled async errors not caught by middleware
+process.on('unhandledRejection', (reason) => {
+  console.error('[fatal] Unhandled promise rejection:', reason);
+  process.exit(1);
+});
+
 // Only start the HTTP server when this file is run directly (not when imported by tests)
 if (require.main === module) {
   sequelize.authenticate()
