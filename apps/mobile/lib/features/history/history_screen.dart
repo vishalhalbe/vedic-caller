@@ -24,7 +24,7 @@ String _formatDate(String? isoString) {
   return '${dt.day}/${dt.month}/${dt.year} $hour:$min';
 }
 
-final _historyProvider = FutureProvider<List<dynamic>>((ref) async {
+final historyProvider = FutureProvider<List<dynamic>>((ref) async {
   // JWT identity used server-side — no hardcoded userId
   return HistoryService().getHistory();
 });
@@ -34,7 +34,7 @@ class HistoryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final history = ref.watch(_historyProvider);
+    final history = ref.watch(historyProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -53,7 +53,7 @@ class HistoryScreen extends ConsumerWidget {
         data: (calls) => calls.isEmpty
             ? const Center(child: Text('No calls yet.', style: TextStyle(color: Colors.white54)))
             : RefreshIndicator(
-                onRefresh: () => ref.refresh(_historyProvider.future),
+                onRefresh: () => ref.refresh(historyProvider.future),
                 child: ListView.builder(
                   itemCount: calls.length,
                   itemBuilder: (_, i) {

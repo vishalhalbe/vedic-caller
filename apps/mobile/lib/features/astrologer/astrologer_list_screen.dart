@@ -6,7 +6,7 @@ import '../../main.dart' show logoutUser;
 import '../wallet/wallet_provider.dart';
 import '../wallet/wallet_widget.dart';
 
-final _astrologersProvider = FutureProvider<List<dynamic>>((ref) async {
+final astrologersProvider = FutureProvider<List<dynamic>>((ref) async {
   final res = await ApiClient().get('/astrologer');
   return res.data as List<dynamic>;
 });
@@ -16,7 +16,7 @@ class AstrologerListScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final astrologers = ref.watch(_astrologersProvider);
+    final astrologers = ref.watch(astrologersProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B0E1A),
@@ -50,7 +50,7 @@ class AstrologerListScreen extends ConsumerWidget {
                 child: Text('Error: $e', style: const TextStyle(color: Colors.red)),
               ),
               data: (list) => RefreshIndicator(
-                onRefresh: () => ref.refresh(_astrologersProvider.future),
+                onRefresh: () => ref.refresh(astrologersProvider.future),
                 child: list.isEmpty
                     ? const Center(
                         child: Text(
@@ -183,7 +183,7 @@ class _AstrologerTile extends StatelessWidget {
                       'rate': rate,
                     })
                 : null,
-            child: const Text('Call'),
+            child: Text(isAvailable ? 'Call' : 'Busy'),
           ),
         ],
       ),
