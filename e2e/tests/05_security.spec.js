@@ -4,7 +4,7 @@ const { register, auth } = require('./helpers');
 test.describe('Security Gates', () => {
   const protectedRoutes = [
     ['GET',  '/wallet/balance'],
-    ['POST', '/wallet/deduct'],
+    // /wallet/deduct was removed — balance changes only via payment/topup flow
     ['POST', '/call/start'],
     ['POST', '/call/end'],
     ['GET',  '/callHistory'],
