@@ -2,7 +2,7 @@
 
 > **Legend:** ✅ Done · 🔴 Critical · 🟠 High · 🟡 Medium · ⬜ Pending
 >
-> Last updated: 2026-04-16 (session 5)  
+> Last updated: 2026-04-16 (session 7 audit)  
 > Branch convention: `fix/<task-id>-<slug>` or work directly on `main` for hotfixes.
 
 ---
@@ -210,11 +210,49 @@
 
 | Task | Description | Priority |
 |------|-------------|----------|
-| PM-01 | Astrologer earnings model (`astrologer_earnings` table, payout tracking) | Pre-launch |
-| PM-02 | Admin dashboard UI (availability toggle, user list, revenue overview) | Post-launch |
-| PM-03 | Wallet custom top-up amount (in addition to ₹100/500/1000 chips) | Medium |
-| PM-04 | Push notifications (astrologer online, call incoming) | Post-launch |
-| PM-05 | Astrologer profile page (bio, specializations, photo) | Medium |
-| DEV-01 | Global 401 handler in Flutter router → auto redirect to `/login` | Medium |
-| DEV-02 | Call history pagination (cursor-based, replace hardcoded LIMIT 50) | Low |
 | TASK-06 | Flutter tests — full run on device/emulator (no SDK locally) | On device |
+
+---
+
+## Session 7 Audit Findings
+
+### 🔴 Critical
+
+| ID | Finding | File | Action |
+|----|---------|------|--------|
+| S7-CRIT-01 | `finaliseCall` not transactional — atomicDeduct can succeed but call.update + astrologer.update can fail, leaving call 'active' forever | `services/callLifecycle.js:59` | Wrap atomicDeduct + call.update + astrologer update in single `sequelize.transaction` |
+| S7-CRIT-02 | `POST /availability/toggle` requires JWT but NOT `requireAdmin` — any user can toggle astrologer availability | `routes/astrologerAvailability.js` | Add `requireAdmin` or delete route (duplicated by `/admin/astrologers/:id/toggle`) |
+
+### 🟠 High
+
+| ID | Finding | File | Action |
+|----|---------|------|--------|
+| S7-HIGH-01 | No test for `POST /call/end` — most critical billing path has zero unit test coverage | `tests/call.test.js` | Add tests: success, double-call (idempotency), insufficient balance |
+| S7-HIGH-02 | Concurrent webhook + `/payment/success` unique constraint violation returns 500 instead of idempotent 200 | `services/walletEngine.js:atomicCredit` | Catch unique constraint error and return idempotent response |
+| S7-HIGH-03 | No admin user creation path — first admin requires raw SQL | — | Add `POST /admin/seed` (secret-gated, one-time) or document manual step |
+| S7-HIGH-04 | `walletService.calculateDeduction` duplicated in `callLifecycle.finaliseCall:61` — two sources of truth for billing formula | `services/callLifecycle.js:61`, `services/walletService.js:1` | `callLifecycle` should call `walletService.calculateDeduction` |
+
+### 🟡 Medium
+
+| ID | Finding | File | Action |
+|----|---------|------|--------|
+| S7-MED-01 | Missing HSTS header in Nginx | `nginx/nginx.conf` | Add `Strict-Transport-Security` header |
+| S7-MED-02 | `Transaction.status` model default is `'pending'` but code always writes `'success'` | `models/transaction.js` | Change model default to `'success'` or add explicit validation |
+| S7-MED-03 | `POST /availability/toggle` doesn't check astrologer existence before update | `routes/astrologerAvailability.js` | Fetch first, return 404 if missing (mirrors `/admin/astrologers/:id/toggle`) |
+| S7-MED-04 | No index on `refresh_tokens.expires_at` — cleanup/expiry queries will scan full table | `migrations/20260416_refresh_tokens.sql` | Add `CREATE INDEX idx_rt_expires_at ON refresh_tokens(expires_at)` |
+| S7-MED-05 | `SKILL.md` API reference outdated — missing `/auth/refresh`, `/auth/logout`, admin routes, paginated callHistory | `SKILL.md` | Update API reference section |
+| S7-MED-06 | `ioredis` and `joi` installed but unused — dead weight in bundle | `package.json` | `npm remove ioredis joi` (or document Redis as planned) |
+| S7-MED-07 | Flutter `astrologer_list_screen.dart` search fires API request on every keystroke (no debounce) | `features/astrologer/astrologer_list_screen.dart` | Add 300ms debounce using `Timer` |
+| S7-MED-08 | `history_screen.dart` — may still read `res.body` as array after callHistory route changed to `{ data, pagination }` | `features/history/history_screen.dart` | Verify and update to `res.body['data']` |
+
+### ⬜ Low
+
+| ID | Finding | File | Action |
+|----|---------|------|--------|
+| S7-LOW-01 | No `photo_url` upload endpoint — column exists but no way to set it | — | Add `POST /admin/astrologers/:id/photo` (multipart) or document manual S3 upload |
+| S7-LOW-02 | Admin screen (`admin_screen.dart`) has no nav entry point — only reachable by typing `/admin` | `main.dart`, `MainShell` | Add conditional nav item for `is_admin` users |
+| S7-LOW-03 | `docker-compose.yml` migrations only run on DB init — new migrations skipped on existing volumes | `docker-compose.yml` | Document `supabase db push` or add `./scripts/migrate.sh` |
+| S7-LOW-04 | Wallet custom top-up has no minimum (₹0.01 is valid) | `features/wallet/wallet_widget.dart` | Add ₹10 minimum validation in `onChanged` |
+| S7-LOW-05 | Agora token expires after 1 hour — calls longer than 1hr will silently disconnect | `routes/call.js`, `features/call/call_screen_v2.dart` | Add token renewal before expiry or cap call duration |
+| S7-LOW-06 | `crypto` listed as explicit package.json dep (it's a Node.js built-in) | `package.json` | `npm remove crypto` |
+| S7-LOW-07 | No log aggregation config — all services write to stdout with no driver configured | `docker-compose.yml` | Add `logging:` block with appropriate driver for production |
