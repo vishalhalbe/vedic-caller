@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../core/app_provider.dart';
@@ -170,7 +171,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       cost:     finalCost ?? (widget.rate / 60) * _seconds,
     );
 
-    if (mounted) Navigator.of(context).pop();
+    if (mounted) context.pop();
   }
 
   Future<void> _showCallSummary({required int duration, required double cost}) async {
@@ -408,7 +409,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
             const SizedBox(height: 28),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.white12),
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => context.pop(),
               child: const Text('Go Back', style: TextStyle(color: Colors.white)),
             ),
           ]),

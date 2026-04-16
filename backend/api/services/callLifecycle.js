@@ -71,9 +71,12 @@ exports.finaliseCall = async (call, durationSeconds, endedAt) => {
     cost,
   });
 
-  // Restore astrologer availability now that the call is finished
+  // Credit the astrologer's earnings and restore availability
   await Astrologer.update(
-    { is_available: true },
+    {
+      is_available:      true,
+      earnings_balance:  sequelize.literal(`earnings_balance + ${cost}`),
+    },
     { where: { id: call.astrologer_id } }
   );
 

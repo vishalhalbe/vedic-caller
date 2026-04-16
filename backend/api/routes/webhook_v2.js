@@ -21,7 +21,12 @@ router.post('/razorpay', express.raw({ type: 'application/json' }), async (req, 
     const rawBody = req.body; // Buffer from express.raw()
     const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
 
-    if (signature !== expected) {
+    // Use timing-safe comparison to prevent timing attacks
+    const sigBuf      = Buffer.from(signature, 'hex');
+    const expectedBuf = Buffer.from(expected,   'hex');
+    const valid = sigBuf.length === expectedBuf.length &&
+                  crypto.timingSafeEqual(sigBuf, expectedBuf);
+    if (!valid) {
       return res.status(400).json({ error: 'Invalid webhook signature' });
     }
 
@@ -34,19 +39,19 @@ router.post('/razorpay', express.raw({ type: 'application/json' }), async (req, 
 
       if (!userId) return res.status(400).json({ error: 'Missing user_id in payment notes' });
 
-      // Use the server-stored order amount (not payment.amount) to prevent partial-capture tricks
-      let amountInr;
-      const order = orderId ? await Order.findByPk(orderId) : null;
-      if (order) {
-        amountInr = parseFloat(order.amount);
-      } else {
-        amountInr = payment.amount / 100; // fallback for orders created before orders table existed
+      // Amount MUST come from the server-stored order — reject if order is missing
+      if (!orderId) return res.status(400).json({ error: 'Missing order_id in payment' });
+      const order = await Order.findByPk(orderId);
+      if (!order) {
+        console.error(`[webhook] order ${orderId} not found — payment ${payment.id} not credited`);
+        return res.status(400).json({ error: 'Order not found' });
       }
 
+      const amountInr = parseFloat(order.amount);
       await atomicCredit(userId, amountInr, payment.id);
 
       // Mark order as paid so /payment/success won't attempt a second credit
-      if (order && order.status !== 'paid') {
+      if (order.status !== 'paid') {
         await order.update({ status: 'paid' });
       }
     }

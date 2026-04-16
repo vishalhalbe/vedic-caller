@@ -6,17 +6,32 @@ import '../../main.dart' show logoutUser;
 import '../wallet/wallet_provider.dart';
 import '../wallet/wallet_widget.dart';
 
-final astrologersProvider = FutureProvider<List<dynamic>>((ref) async {
-  final res = await ApiClient().get('/astrologer');
+final astrologersProvider = FutureProvider.family<List<dynamic>, String>((ref, query) async {
+  final path = query.isEmpty ? '/astrologer' : '/astrologer?name=${Uri.encodeQueryComponent(query)}';
+  final res = await ApiClient().get(path);
   return res.data as List<dynamic>;
 });
 
-class AstrologerListScreen extends ConsumerWidget {
+class AstrologerListScreen extends ConsumerStatefulWidget {
   const AstrologerListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final astrologers = ref.watch(astrologersProvider);
+  ConsumerState<AstrologerListScreen> createState() => _AstrologerListScreenState();
+}
+
+class _AstrologerListScreenState extends ConsumerState<AstrologerListScreen> {
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final astrologers = ref.watch(astrologersProvider(_searchQuery));
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B0E1A),
@@ -41,7 +56,66 @@ class AstrologerListScreen extends ConsumerWidget {
             padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: WalletWidget(),
           ),
+          // Onboarding banner — only shown when balance is zero
+          Consumer(
+            builder: (context, ref, _) {
+              final balance = ref.watch(walletProvider).valueOrNull;
+              if (balance == null || balance > 0) return const SizedBox.shrink();
+              return Container(
+                margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.deepPurple.withOpacity(0.25),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.deepPurpleAccent.withOpacity(0.4)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.deepPurpleAccent, size: 20),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Welcome! Add funds above to start consulting with an astrologer.',
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
           const SizedBox(height: 8),
+          // Search bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: TextField(
+              controller: _searchController,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Search astrologers…',
+                hintStyle: const TextStyle(color: Colors.white38),
+                prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 20),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, color: Colors.white38, size: 18),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.06),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              onChanged: (val) => setState(() => _searchQuery = val.trim()),
+            ),
+          ),
           // Astrologer list fills remaining space
           Expanded(
             child: astrologers.when(
@@ -50,7 +124,7 @@ class AstrologerListScreen extends ConsumerWidget {
                 child: Text('Error: $e', style: const TextStyle(color: Colors.red)),
               ),
               data: (list) => RefreshIndicator(
-                onRefresh: () => ref.refresh(astrologersProvider.future),
+                onRefresh: () => ref.refresh(astrologersProvider(_searchQuery).future),
                 child: list.isEmpty
                     ? const Center(
                         child: Text(
@@ -73,6 +147,9 @@ class AstrologerListScreen extends ConsumerWidget {
                                 rate: rate,
                                 isAvailable: a['is_available'] == true,
                                 walletBalance: balance,
+                                specialization: a['specialization'] as String?,
+                                experienceYears: a['experience_years'] as int?,
+                                photoUrl: a['photo_url'] as String?,
                               );
                             },
                           );
@@ -93,6 +170,9 @@ class _AstrologerTile extends StatelessWidget {
   final double rate;
   final bool isAvailable;
   final double walletBalance;
+  final String? specialization;
+  final int? experienceYears;
+  final String? photoUrl;
 
   const _AstrologerTile({
     required this.id,
@@ -100,6 +180,9 @@ class _AstrologerTile extends StatelessWidget {
     required this.rate,
     required this.isAvailable,
     required this.walletBalance,
+    this.specialization,
+    this.experienceYears,
+    this.photoUrl,
   });
 
   @override
@@ -117,7 +200,21 @@ class _AstrologerTile extends StatelessWidget {
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Avatar
+          CircleAvatar(
+            radius: 28,
+            backgroundColor: Colors.deepPurple.withOpacity(0.3),
+            backgroundImage: photoUrl != null ? NetworkImage(photoUrl!) : null,
+            child: photoUrl == null
+                ? Text(
+                    name.isNotEmpty ? name[0].toUpperCase() : '?',
+                    style: const TextStyle(color: Colors.white, fontSize: 20),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -126,6 +223,22 @@ class _AstrologerTile extends StatelessWidget {
                   name,
                   style: const TextStyle(color: Colors.white, fontSize: 16),
                 ),
+                if (specialization != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      specialization!,
+                      style: const TextStyle(color: Colors.deepPurpleAccent, fontSize: 12),
+                    ),
+                  ),
+                if (experienceYears != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 1),
+                    child: Text(
+                      '$experienceYears yrs exp',
+                      style: const TextStyle(color: Colors.white38, fontSize: 11),
+                    ),
+                  ),
                 const SizedBox(height: 4),
                 Row(
                   children: [

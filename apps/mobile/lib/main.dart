@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +10,13 @@ import 'features/astrologer/astrologer_list_screen.dart';
 import 'features/call/call_screen_v2.dart';
 import 'features/history/history_screen.dart';
 import 'features/wallet/wallet_provider.dart';
+import 'features/admin/admin_screen.dart';
 import 'services/auth_service.dart';
+
+const _apiBaseUrl = String.fromEnvironment(
+  'API_BASE_URL',
+  defaultValue: 'http://10.0.2.2:3000',
+);
 
 /// Call from any screen to log the user out.
 Future<void> logoutUser(WidgetRef ref, BuildContext context) async {
@@ -21,17 +28,33 @@ Future<void> logoutUser(WidgetRef ref, BuildContext context) async {
   if (context.mounted) context.go('/login');
 }
 
-final _authTokenProvider = FutureProvider<String?>((ref) async {
-  return TokenStorage().get();
-});
-
 final _router = GoRouter(
   redirect: (context, state) async {
-    final token = await TokenStorage().get();
-    final onLogin = state.matchedLocation == '/login';
-    if (token == null && !onLogin) return '/login';
-    if (token != null && onLogin) return '/home';
-    return null;
+    final storage  = TokenStorage();
+    final onLogin  = state.matchedLocation == '/login';
+    final access   = await storage.get();
+
+    if (access != null) {
+      // Token string present — ApiClient's 401 interceptor handles expiry silently
+      return onLogin ? '/home' : null;
+    }
+
+    // No access token — try to restore session with refresh token
+    final refresh = await storage.getRefresh();
+    if (refresh != null) {
+      try {
+        final res = await Dio(BaseOptions(baseUrl: _apiBaseUrl))
+            .post('/auth/refresh', data: {'refresh_token': refresh});
+        await storage.save(res.data['token'] as String);
+        await storage.saveRefresh(res.data['refresh_token'] as String);
+        return onLogin ? '/home' : null;
+      } catch (_) {
+        // Refresh token invalid/expired — clear and force login
+        await storage.deleteAll();
+      }
+    }
+
+    return onLogin ? null : '/login';
   },
   routes: [
     GoRoute(
@@ -52,6 +75,10 @@ final _router = GoRouter(
           rate: (extra['rate'] as num).toDouble(),
         );
       },
+    ),
+    GoRoute(
+      path: '/admin',
+      builder: (context, state) => const AdminScreen(),
     ),
   ],
   initialLocation: '/login',

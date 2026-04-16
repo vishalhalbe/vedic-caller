@@ -98,12 +98,24 @@ describe('GET /callHistory', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns empty array for new user', async () => {
+  it('returns paginated response for new user', async () => {
     const { token } = await registerAndLogin();
     const res = await request(app)
       .get('/callHistory')
       .set('Authorization', token);
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(typeof res.body.pagination).toBe('object');
+    expect(typeof res.body.pagination.total).toBe('number');
+  });
+
+  it('respects limit and page params', async () => {
+    const { token } = await registerAndLogin();
+    const res = await request(app)
+      .get('/callHistory?page=1&limit=5')
+      .set('Authorization', token);
+    expect(res.status).toBe(200);
+    expect(res.body.pagination.limit).toBe(5);
+    expect(res.body.pagination.page).toBe(1);
   });
 });
