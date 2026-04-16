@@ -4,7 +4,12 @@ import 'token_storage.dart';
 const String _baseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://10.0.2.2:3000');
 
 class ApiClient {
-  final Dio dio = Dio(BaseOptions(baseUrl: _baseUrl));
+  final Dio dio = Dio(BaseOptions(
+    baseUrl:        _baseUrl,
+    connectTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(seconds: 60),
+    sendTimeout:    const Duration(seconds: 30),
+  ));
   final _storage = TokenStorage();
 
   ApiClient() {

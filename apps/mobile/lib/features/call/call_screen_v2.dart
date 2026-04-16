@@ -174,10 +174,13 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     }
 
     if (!mounted) return;
-    await _showCallSummary(
-      duration: finalDuration ?? _seconds,
-      cost:     finalCost ?? (widget.rate / 60) * _seconds,
-    );
+    // Only show summary if a call was actually established on the server.
+    if (_callId != null) {
+      await _showCallSummary(
+        duration: finalDuration ?? _seconds,
+        cost:     finalCost ?? (widget.rate / 60) * _seconds,
+      );
+    }
 
     if (mounted) context.pop();
   }
