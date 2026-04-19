@@ -9,7 +9,7 @@ JyotishConnect is a production-ready **Vedic astrology voice consulting platform
 **Tech Stack:**
 - Mobile: Flutter (Dart)
 - Backend: Node.js + Express
-- Database: PostgreSQL (Supabase) + Sequelize ORM
+- Database: PostgreSQL (Supabase) via `@supabase/supabase-js` (Sequelize removed)
 - Voice: Agora RTC
 - Payments: Razorpay
 
@@ -32,7 +32,7 @@ JyotishConnect is a production-ready **Vedic astrology voice consulting platform
 │  Middleware: JWT auth → Rate limiter → Idempotency          │
 │  Services:  callLifecycle → walletEngine → billingEngine    │
 └──────────────────────┬──────────────────────────────────────┘
-                       │ Sequelize ORM
+                       │ @supabase/supabase-js (REST + RPC)
 ┌──────────────────────▼──────────────────────────────────────┐
 │              PostgreSQL (Supabase)                           │
 │   users · astrologers · calls · transactions                 │
@@ -77,7 +77,8 @@ flutter run
 ### Key Environment Variables
 ```
 PORT=3000
-DB_URI=postgres://...              # Sequelize connection string
+SUPABASE_URL=https://...           # Supabase project URL
+SUPABASE_KEY=sb_publishable_...   # Supabase anon/publishable key
 JWT_SECRET=...                     # Required: min 48 hex chars
 RAZORPAY_KEY_ID=...
 RAZORPAY_KEY_SECRET=...
@@ -170,7 +171,8 @@ refresh_tokens (id uuid PK, user_id FK→users ON DELETE CASCADE,
 | `backend/api/routes/adminBootstrap.js` | POST /admin/seed (no JWT, x-seed-secret) |
 | `backend/api/middleware/authMiddleware.js` | JWT verification + requireAdmin guard |
 | `backend/api/middleware/rateLimiter.js` | Global + auth rate limits (disabled in NODE_ENV=test) |
-| `backend/api/models/` | Sequelize models: User, Astrologer, Call, Transaction, Order, RefreshToken |
+| `backend/api/config/db.js` | Supabase client (createClient with SUPABASE_URL + SUPABASE_KEY) |
+| `supabase/migrations/` | Full schema + RPCs: wallet_deduct, wallet_credit, start_call, end_call |
 | `apps/mobile/lib/features/call/call_screen_v2.dart` | In-call timer, cost display, 55-min auto-end |
 | `apps/mobile/lib/features/auth/login_screen_v2.dart` | Email/password login + register flow |
 | `apps/mobile/lib/features/wallet/wallet_widget.dart` | Top-up with ₹10 minimum guard |
