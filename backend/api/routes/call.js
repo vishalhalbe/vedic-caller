@@ -1,24 +1,21 @@
 const express    = require('express');
 const router     = express.Router();
-const { Op }     = require('sequelize');
 const auth       = require('../middleware/authMiddleware');
+const supabase   = require('../config/db');
 const { startCall, endCall, finaliseCall } = require('../services/callLifecycle');
-const { User, Call, Astrologer } = require('../models');
 
-// Agora token generation — requires AGORA_APP_ID + AGORA_APP_CERTIFICATE env vars
 function buildAgoraToken(channelName, uid) {
   const appId   = process.env.AGORA_APP_ID;
   const appCert = process.env.AGORA_APP_CERTIFICATE;
 
   if (!appId || !appCert) {
-    // Dev fallback — not for production
     console.warn('[call] AGORA_APP_ID/AGORA_APP_CERTIFICATE not set; using dev placeholder');
     return { channel: channelName, token: `dev-token-${channelName}` };
   }
 
   try {
     const { RtcTokenBuilder, RtcRole } = require('agora-access-token');
-    const expireAt = Math.floor(Date.now() / 1000) + 3600; // 1 hour
+    const expireAt = Math.floor(Date.now() / 1000) + 3600;
     const token = RtcTokenBuilder.buildTokenWithUid(appId, appCert, channelName, uid, RtcRole.PUBLISHER, expireAt);
     return { channel: channelName, token };
   } catch (e) {
@@ -27,26 +24,28 @@ function buildAgoraToken(channelName, uid) {
   }
 }
 
-// POST /call/start
 router.post('/start', auth, async (req, res, next) => {
   try {
     const { astrologer_id } = req.body;
-    if (!astrologer_id) {
-      return res.status(400).json({ error: 'astrologer_id required' });
-    }
+    if (!astrologer_id) return res.status(400).json({ error: 'astrologer_id required' });
 
-    // Rate is always read from the DB — never trusted from the client
-    const astrologer = await Astrologer.findByPk(astrologer_id, {
-      attributes: ['id', 'rate_per_minute', 'is_available'],
-    });
+    const { data: astrologer } = await supabase
+      .from('astrologers')
+      .select('id, rate_per_minute, is_available')
+      .eq('id', astrologer_id)
+      .single();
+
     if (!astrologer) return res.status(404).json({ error: 'Astrologer not found' });
-    // Fast pre-check for UX — startCall also checks atomically inside a DB transaction
     if (!astrologer.is_available) return res.status(400).json({ error: 'Astrologer is not available' });
 
     const parsedRate = parseFloat(astrologer.rate_per_minute);
 
-    // Check user has funds before starting
-    const user = await User.findByPk(req.user.id, { attributes: ['wallet_balance'] });
+    const { data: user } = await supabase
+      .from('users')
+      .select('wallet_balance')
+      .eq('id', req.user.id)
+      .single();
+
     if (!user) return res.status(404).json({ error: 'User not found' });
     if (parseFloat(user.wallet_balance) < parsedRate / 60) {
       return res.status(400).json({ error: 'Insufficient balance to start call' });
@@ -70,72 +69,57 @@ router.post('/start', auth, async (req, res, next) => {
   }
 });
 
-// POST /call/end
 router.post('/end', auth, async (req, res, next) => {
   try {
     const { call_id } = req.body;
-    // Rate is NOT taken from the client — it was stored server-side at call start
     const { call, durationSeconds, endedAt } = await endCall(req.user.id, call_id);
     const result = await finaliseCall(call, durationSeconds, endedAt);
-
     res.json(result);
   } catch (err) {
-    if (err.message === 'Active call not found' || err.message === 'Call already ended') {
-      return res.status(400).json({ error: err.message });
-    }
-    if (err.message === 'Insufficient balance') {
+    if (['Active call not found', 'Call already ended', 'Insufficient balance'].includes(err.message)) {
       return res.status(400).json({ error: err.message });
     }
     next(err);
   }
 });
 
-// POST /call/cleanup — cron-only endpoint to close stale calls and restore astrologer availability
-// Auth: x-cleanup-secret header   Frequency: every 5 minutes via cron
 router.post('/cleanup', async (req, res, next) => {
   try {
-    const secret = req.headers['x-cleanup-secret'];
+    const secret   = req.headers['x-cleanup-secret'];
     const expected = process.env.CLEANUP_SECRET;
     if (!expected || secret !== expected) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
-    // Find stale active calls before cancelling so we can restore astrologer availability
-    const staleCalls = await Call.findAll({
-      where: { status: 'active', started_at: { [Op.lt]: oneHourAgo } },
-      attributes: ['id', 'astrologer_id'],
-    });
+    const { data: staleCalls } = await supabase
+      .from('calls')
+      .select('id, astrologer_id')
+      .eq('status', 'active')
+      .lt('started_at', oneHourAgo);
 
-    if (staleCalls.length > 0) {
+    if (staleCalls && staleCalls.length > 0) {
       const staleIds         = staleCalls.map(c => c.id);
       const staleAstrologers = [...new Set(staleCalls.map(c => c.astrologer_id))];
 
-      await Call.update(
-        { status: 'cancelled' },
-        { where: { id: { [Op.in]: staleIds } } }
-      );
+      await supabase.from('calls').update({ status: 'cancelled' }).in('id', staleIds);
 
-      // Restore availability only for astrologers with NO remaining active calls.
-      // An astrologer could have a second, non-stale active call started after the stale one.
-      const stillBusy = await Call.findAll({
-        where:      { astrologer_id: { [Op.in]: staleAstrologers }, status: 'active' },
-        attributes: ['astrologer_id'],
-        raw:        true,
-      });
-      const busyIds = new Set(stillBusy.map(c => c.astrologer_id));
+      const { data: stillBusy } = await supabase
+        .from('calls')
+        .select('astrologer_id')
+        .in('astrologer_id', staleAstrologers)
+        .eq('status', 'active');
+
+      const busyIds = new Set((stillBusy || []).map(c => c.astrologer_id));
       const toFree  = staleAstrologers.filter(id => !busyIds.has(id));
 
       if (toFree.length > 0) {
-        await Astrologer.update(
-          { is_available: true },
-          { where: { id: { [Op.in]: toFree } } }
-        );
+        await supabase.from('astrologers').update({ is_available: true }).in('id', toFree);
       }
     }
 
-    res.json({ cleaned: staleCalls.length });
+    res.json({ cleaned: staleCalls ? staleCalls.length : 0 });
   } catch (err) {
     next(err);
   }

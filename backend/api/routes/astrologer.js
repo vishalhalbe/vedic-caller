@@ -1,26 +1,25 @@
-const express = require('express');
-const router = express.Router();
-const { Op } = require('sequelize');
-const { Astrologer } = require('../models');
+const express    = require('express');
+const router     = express.Router();
+const supabase   = require('../config/db');
 
-// GET /astrologer?name=<query> — list available astrologers, optional name filter
 router.get('/', async (req, res, next) => {
   try {
-    const where = { is_available: true };
+    let query = supabase
+      .from('astrologers')
+      .select('id, name, rate_per_minute, is_available, bio, specialization, experience_years, photo_url')
+      .eq('is_available', true)
+      .order('name', { ascending: true });
+
     if (req.query.name) {
-      where.name = { [Op.iLike]: `%${req.query.name}%` };
+      query = query.ilike('name', `%${req.query.name}%`);
     }
 
-    const astrologers = await Astrologer.findAll({
-      where,
-      attributes: ['id', 'name', 'rate_per_minute', 'is_available', 'bio', 'specialization', 'experience_years', 'photo_url'],
-      order: [['name', 'ASC']],
-    });
-    res.json(astrologers);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    res.json(data || []);
   } catch (err) {
     next(err);
   }
 });
-
 
 module.exports = router;

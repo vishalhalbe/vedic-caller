@@ -1,82 +1,72 @@
 const express    = require('express');
 const router     = express.Router();
-const { Op }     = require('sequelize');
-const { User, Astrologer, Call, Transaction } = require('../models');
+const supabase   = require('../config/db');
 
 // All routes here are already protected by authMiddleware + requireAdmin in app.js
 
-// GET /admin/stats — platform overview
 router.get('/stats', async (req, res, next) => {
   try {
     const [
-      totalUsers,
-      totalAstrologers,
-      onlineAstrologers,
-      totalCalls,
-      activeCalls,
-      completedCalls,
+      { count: totalUsers },
+      { count: totalAstrologers },
+      { count: onlineAstrologers },
+      { count: totalCalls },
+      { count: activeCalls },
+      { count: completedCalls },
+      { data: revenueRows },
     ] = await Promise.all([
-      User.count(),
-      Astrologer.count(),
-      Astrologer.count({ where: { is_available: true } }),
-      Call.count(),
-      Call.count({ where: { status: 'active' } }),
-      Call.count({ where: { status: 'completed' } }),
+      supabase.from('users').select('*', { count: 'exact', head: true }),
+      supabase.from('astrologers').select('*', { count: 'exact', head: true }),
+      supabase.from('astrologers').select('*', { count: 'exact', head: true }).eq('is_available', true),
+      supabase.from('calls').select('*', { count: 'exact', head: true }),
+      supabase.from('calls').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+      supabase.from('calls').select('*', { count: 'exact', head: true }).eq('status', 'completed'),
+      supabase.from('calls').select('cost').eq('status', 'completed'),
     ]);
 
-    // Revenue: sum of completed call costs
-    const revenueResult = await Call.findOne({
-      attributes: [
-        [require('../config/db').literal('COALESCE(SUM(cost), 0)'), 'total_revenue'],
-      ],
-      where: { status: 'completed' },
-      raw: true,
-    });
+    const totalRevenue = (revenueRows || []).reduce((sum, r) => sum + parseFloat(r.cost || 0), 0);
 
     res.json({
-      users:      { total: totalUsers },
-      astrologers: {
-        total:   totalAstrologers,
-        online:  onlineAstrologers,
-      },
-      calls: {
-        total:     totalCalls,
-        active:    activeCalls,
-        completed: completedCalls,
-      },
-      revenue: {
-        total_inr: parseFloat(revenueResult?.total_revenue ?? 0),
-      },
+      users:       { total: totalUsers || 0 },
+      astrologers: { total: totalAstrologers || 0, online: onlineAstrologers || 0 },
+      calls:       { total: totalCalls || 0, active: activeCalls || 0, completed: completedCalls || 0 },
+      revenue:     { total_inr: parseFloat(totalRevenue.toFixed(2)) },
     });
   } catch (err) {
     next(err);
   }
 });
 
-// GET /admin/astrologers — list all astrologers with earnings
 router.get('/astrologers', async (req, res, next) => {
   try {
-    const astrologers = await Astrologer.findAll({
-      attributes: ['id', 'name', 'rate_per_minute', 'is_available', 'earnings_balance', 'specialization', 'experience_years'],
-      order: [['name', 'ASC']],
-    });
-    res.json(astrologers);
+    const { data, error } = await supabase
+      .from('astrologers')
+      .select('id, name, rate_per_minute, is_available, earnings_balance, specialization, experience_years')
+      .order('name', { ascending: true });
+
+    if (error) throw new Error(error.message);
+    res.json(data || []);
   } catch (err) {
     next(err);
   }
 });
 
-// POST /admin/astrologers/:id/toggle — toggle astrologer availability
 router.post('/astrologers/:id/toggle', async (req, res, next) => {
   try {
     const { available } = req.body;
     if (typeof available !== 'boolean') {
       return res.status(400).json({ error: 'available (boolean) required' });
     }
-    const astrologer = await Astrologer.findByPk(req.params.id);
-    if (!astrologer) return res.status(404).json({ error: 'Astrologer not found' });
-    await astrologer.update({ is_available: available });
-    res.json({ id: astrologer.id, is_available: available });
+
+    const { data, error } = await supabase
+      .from('astrologers')
+      .update({ is_available: available })
+      .eq('id', req.params.id)
+      .select('id, is_available')
+      .single();
+
+    if (error || !data) return res.status(404).json({ error: 'Astrologer not found' });
+    res.json({ id: data.id, is_available: available });
   } catch (err) {
     next(err);
   }

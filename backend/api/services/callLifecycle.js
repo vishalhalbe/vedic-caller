@@ -1,87 +1,86 @@
-const sequelize = require('../config/db');
-const { Call, Astrologer } = require('../models');
+const supabase = require('../config/db');
 const { atomicDeduct } = require('./walletEngine');
-const { calculateDeduction } = require('./walletService'); // single source of truth for billing
+const { calculateDeduction } = require('./walletService');
 
 exports.startCall = async (userId, astrologerId, rate) => {
-  return await sequelize.transaction(async (t) => {
-    // Lock astrologer row — prevents two concurrent calls from both passing availability check
-    const [rows] = await sequelize.query(
-      `SELECT id, is_available FROM astrologers WHERE id = :id FOR UPDATE`,
-      { replacements: { id: astrologerId }, transaction: t, type: sequelize.QueryTypes.SELECT }
-    );
-
-    if (!rows) throw new Error('Astrologer not found');
-    if (!rows.is_available) throw new Error('Astrologer is not available');
-
-    await Astrologer.update(
-      { is_available: false },
-      { where: { id: astrologerId }, transaction: t }
-    );
-
-    const call = await Call.create({
-      user_id:          userId,
-      astrologer_id:    astrologerId,
-      status:           'active',
-      started_at:       new Date(),
-      cost:             0,
-      duration_seconds: 0,
-      rate_per_minute:  rate,
-    }, { transaction: t });
-
-    return {
-      call_id:   call.id,
-      userId,
-      astrologerId,
-      rate,
-      startTime: call.started_at.getTime(),
-      status:    'active',
-    };
+  const { data, error } = await supabase.rpc('start_call', {
+    p_user_id:       userId,
+    p_astrologer_id: astrologerId,
+    p_rate:          rate,
   });
+
+  if (error) {
+    if (error.message.includes('not available')) throw new Error('Astrologer is not available');
+    if (error.message.includes('not found'))     throw new Error('Astrologer not found');
+    throw new Error(error.message);
+  }
+
+  return {
+    call_id:     data.call_id,
+    userId,
+    astrologerId,
+    rate,
+    startTime:   new Date(data.started_at).getTime(),
+    status:      'active',
+  };
 };
 
 exports.endCall = async (userId, callId) => {
-  const call = await Call.findOne({
-    where: callId
-      ? { id: callId, user_id: userId }
-      : { user_id: userId, status: 'active' },
-  });
+  let query = supabase.from('calls').select('*').eq('user_id', userId);
 
+  if (callId) {
+    query = query.eq('id', callId);
+  } else {
+    query = query.eq('status', 'active');
+  }
+
+  const { data: calls, error } = await query;
+  if (error) throw new Error(error.message);
+
+  const call = calls && calls[0];
   if (!call) throw new Error('Active call not found');
   if (call.status !== 'active') throw new Error('Call already ended');
 
   const endedAt         = new Date();
-  const durationSeconds = Math.floor((endedAt - call.started_at) / 1000);
+  const durationSeconds = Math.floor((endedAt - new Date(call.started_at)) / 1000);
 
   return { call, durationSeconds, endedAt };
 };
 
 exports.finaliseCall = async (call, durationSeconds, endedAt) => {
-  // Single transaction wraps deduction + call update + astrologer update.
-  // If any step fails the entire operation rolls back — user is never charged
-  // without the call being marked completed.
-  return await sequelize.transaction(async (t) => {
-    // calculateDeduction is the single source of truth for the billing formula.
-    const cost = parseFloat(calculateDeduction(call.rate_per_minute, durationSeconds).toFixed(2));
+  const cost = parseFloat(calculateDeduction(call.rate_per_minute, durationSeconds).toFixed(2));
 
-    // Reference tied to call.id — retried /call/end cannot double-deduct.
-    await atomicDeduct(call.user_id, cost, `call_end_${call.id}`, t);
+  await atomicDeduct(call.user_id, cost, `call_end_${call.id}`);
 
-    await call.update({
+  const { error: callErr } = await supabase
+    .from('calls')
+    .update({
       status:           'completed',
-      ended_at:         endedAt,
+      ended_at:         endedAt.toISOString(),
       duration_seconds: durationSeconds,
       cost,
-    }, { transaction: t });
+    })
+    .eq('id', call.id);
 
-    await Astrologer.update(
-      {
-        is_available:     true,
-        earnings_balance: sequelize.literal(`earnings_balance + ${cost}`),
-      },
-      { where: { id: call.astrologer_id }, transaction: t }
-    );
+  if (callErr) throw new Error(callErr.message);
 
-    return { duration: durationSeconds, cost };
-  });
+  const { data: astrologer, error: aErr } = await supabase
+    .from('astrologers')
+    .select('earnings_balance')
+    .eq('id', call.astrologer_id)
+    .single();
+
+  if (aErr) throw new Error(aErr.message);
+
+  const { error: updateErr } = await supabase
+    .from('astrologers')
+    .update({
+      is_available:     true,
+      earnings_balance: parseFloat(astrologer.earnings_balance) + cost,
+    })
+    .eq('id', call.astrologer_id);
+
+  if (updateErr) throw new Error(updateErr.message);
+
+  return { duration: durationSeconds, cost };
 };
