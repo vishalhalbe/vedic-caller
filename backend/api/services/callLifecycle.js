@@ -1,5 +1,4 @@
 const supabase = require('../config/db');
-const { atomicDeduct } = require('./walletEngine');
 const { calculateDeduction } = require('./walletService');
 
 exports.startCall = async (userId, astrologerId, rate) => {
@@ -34,7 +33,7 @@ exports.endCall = async (userId, callId) => {
     query = query.eq('status', 'active');
   }
 
-  const { data: calls, error } = await query;
+  const { data: calls, error } = await query.limit(1);
   if (error) throw new Error(error.message);
 
   const call = calls && calls[0];
@@ -47,40 +46,22 @@ exports.endCall = async (userId, callId) => {
   return { call, durationSeconds, endedAt };
 };
 
-exports.finaliseCall = async (call, durationSeconds, endedAt) => {
-  const cost = parseFloat(calculateDeduction(call.rate_per_minute, durationSeconds).toFixed(2));
+exports.finaliseCall = async (call, durationSeconds) => {
+  const cost      = parseFloat(calculateDeduction(call.rate_per_minute, durationSeconds).toFixed(2));
+  const reference = `call_end_${call.id}`;
 
-  await atomicDeduct(call.user_id, cost, `call_end_${call.id}`);
+  const { data, error } = await supabase.rpc('end_call', {
+    p_call_id:       call.id,
+    p_duration_secs: durationSeconds,
+    p_cost:          cost,
+    p_reference:     reference,
+  });
 
-  const { error: callErr } = await supabase
-    .from('calls')
-    .update({
-      status:           'completed',
-      ended_at:         endedAt.toISOString(),
-      duration_seconds: durationSeconds,
-      cost,
-    })
-    .eq('id', call.id);
+  if (error) {
+    if (error.message.includes('Insufficient balance')) throw new Error('Insufficient balance');
+    if (error.message.includes('Call already ended'))   throw new Error('Call already ended');
+    throw new Error(error.message);
+  }
 
-  if (callErr) throw new Error(callErr.message);
-
-  const { data: astrologer, error: aErr } = await supabase
-    .from('astrologers')
-    .select('earnings_balance')
-    .eq('id', call.astrologer_id)
-    .single();
-
-  if (aErr) throw new Error(aErr.message);
-
-  const { error: updateErr } = await supabase
-    .from('astrologers')
-    .update({
-      is_available:     true,
-      earnings_balance: parseFloat(astrologer.earnings_balance) + cost,
-    })
-    .eq('id', call.astrologer_id);
-
-  if (updateErr) throw new Error(updateErr.message);
-
-  return { duration: durationSeconds, cost };
+  return { duration: data.duration, cost: parseFloat(data.cost) };
 };

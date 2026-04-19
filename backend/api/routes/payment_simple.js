@@ -68,9 +68,23 @@ router.post('/success', auth, async (req, res, next) => {
     }
 
     const storedAmount = parseFloat(order.amount);
-    const result = await atomicCredit(req.user.id, storedAmount, payment_id);
 
-    await supabase.from('orders').update({ status: 'paid' }).eq('id', order_id);
+    // Atomically claim the order — only one concurrent request will see rowCount > 0
+    const { data: claimed } = await supabase
+      .from('orders')
+      .update({ status: 'paid' })
+      .eq('id', order_id)
+      .eq('status', 'created')
+      .select('id');
+
+    if (!claimed || claimed.length === 0) {
+      // Another request already claimed it — return current balance
+      const { data: user } = await supabase
+        .from('users').select('wallet_balance').eq('id', req.user.id).single();
+      return res.json({ success: true, balance: parseFloat(user.wallet_balance) });
+    }
+
+    const result = await atomicCredit(req.user.id, storedAmount, payment_id);
 
     res.json({ success: true, balance: result.balance });
   } catch (err) {

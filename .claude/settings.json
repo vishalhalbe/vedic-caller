@@ -24,10 +24,8 @@
       "args": [
         "-y",
         "@supabase/mcp-server-supabase@latest",
-        "--supabase-url",
-        "https://rddxemcvddhicylsmpfb.supabase.co",
-        "--supabase-key",
-        "sb_publishable_nA-zbOJdphnrV-0dRBqEkQ_pmseOV7r"
+        "--access-token",
+        "sbp_1f6a71500fe8bbea5d7b8eae29cb44063079fbe0"
       ]
     }
   },

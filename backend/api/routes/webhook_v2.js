@@ -36,17 +36,21 @@ router.post('/razorpay', express.raw({ type: 'application/json' }), async (req, 
 
       const { data: order } = await supabase
         .from('orders')
-        .select('id, amount, status')
+        .select('id, amount, status, user_id')
         .eq('id', orderId)
         .maybeSingle();
 
       if (!order) {
-        console.error(`[webhook] order ${orderId} not found — payment ${payment.id} not credited`);
         return res.status(400).json({ error: 'Order not found' });
       }
 
+      // Use DB-authoritative user_id, not the attacker-controllable notes field
+      if (order.user_id !== userId) {
+        return res.status(400).json({ error: 'user_id mismatch' });
+      }
+
       const amountInr = parseFloat(order.amount);
-      await atomicCredit(userId, amountInr, payment.id);
+      await atomicCredit(order.user_id, amountInr, payment.id);
 
       if (order.status !== 'paid') {
         await supabase.from('orders').update({ status: 'paid' }).eq('id', orderId);
