@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"console.log('\\n=== FEATURE GATE — run before next feature ===\\n1. cd backend/api && npx playwright test --reporter=list\\n2. Check screenshots: backend/api/test-results/\\n3. HTML report:      backend/api/playwright-report/index.html\\n4. Jest suite:       cd backend/api && npm test\\n5. Gap analysis:     review TASKS.md open items\\n============================================\\n')\""
+            "command": "cd \"c:\\Users\\MADHUKAR HALBE\\Downloads\\Vedic-Caller\\vedic-caller\\backend\\api\" && npx playwright test --reporter=list 2>&1"
           }
         ]
       }
