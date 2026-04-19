@@ -18,12 +18,24 @@
         "--key-secret",
         "otuH0GLATYyWD99YNjJTAKbT"
       ]
+    },
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--supabase-url",
+        "https://rddxemcvddhicylsmpfb.supabase.co",
+        "--supabase-key",
+        "sb_publishable_nA-zbOJdphnrV-0dRBqEkQ_pmseOV7r"
+      ]
     }
   },
   "permissions": {
     "allow": [
       "mcp__playwright__*",
-      "mcp__razorpay__*"
+      "mcp__razorpay__*",
+      "mcp__supabase__*"
     ]
   }
 }
