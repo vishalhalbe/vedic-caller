@@ -11,7 +11,7 @@ module.exports = defineConfig({
     baseURL: 'http://localhost:8282',
     headless: true,
     actionTimeout: 90_000,
-    screenshot: 'only-on-failure',
+    screenshot: 'on',
     video: 'retain-on-failure',
   },
   webServer: [

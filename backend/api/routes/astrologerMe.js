@@ -9,7 +9,7 @@ router.get('/me', auth, requireAstrologer, async (req, res, next) => {
   try {
     const { data, error } = await supabase
       .from('astrologers')
-      .select('id, name, email, rate_per_minute, is_available, earnings_balance, bio, photo_url, specializations')
+      .select('id, name, email, rate_per_minute, is_available, earnings_balance, bio, photo_url, specialty')
       .eq('id', req.user.id)
       .single();
 

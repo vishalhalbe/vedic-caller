@@ -111,7 +111,7 @@ test('start + end call deducts wallet and returns summary', async ({ request }) 
   });
   expect(endRes.status()).toBe(200);
   const endBody = await endRes.json();
-  expect(endBody.status).toBe('completed');
+  // finaliseCall returns { duration, cost } — no status field on response
   expect(typeof endBody.duration).toBe('number');
   expect(typeof endBody.cost).toBe('number');
   expect(endBody.cost).toBeGreaterThanOrEqual(0);

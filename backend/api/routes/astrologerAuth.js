@@ -30,11 +30,16 @@ router.post('/register', async (req, res, next) => {
     const { data: astrologer, error } = await supabase
       .from('astrologers')
       .insert({
-        name:            name.trim(),
-        email:           email.toLowerCase(),
+        name:             name.trim(),
+        email:            email.toLowerCase(),
         password_hash,
-        rate_per_minute: parseFloat(rate_per_minute),
-        is_available:    false,
+        rate_per_minute:  parseFloat(rate_per_minute),
+        price_per_min:    parseFloat(rate_per_minute),
+        is_available:     false,
+        is_online:        false,
+        specialty:        'General',
+        languages:        ['English'],
+        years_experience: 0,
       })
       .select('id, name, email, rate_per_minute')
       .single();
