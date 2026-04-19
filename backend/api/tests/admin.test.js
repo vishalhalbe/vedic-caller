@@ -1,9 +1,9 @@
 /**
  * Admin access control tests
  */
-const request = require('supertest');
-const app     = require('../app');
-const { User } = require('../models');
+const request  = require('supertest');
+const app      = require('../app');
+const supabase = require('../config/db');
 
 let _seq = 0;
 async function registerAndLogin() {
@@ -33,7 +33,7 @@ describe('POST /availability/toggle', () => {
   it('returns 404 for admin user with non-existent astrologer', async () => {
     const { userId, token } = await registerAndLogin();
     // Elevate to admin directly in DB
-    await User.update({ is_admin: true }, { where: { id: userId } });
+    await supabase.from('users').update({ is_admin: true }).eq('id', userId);
     const res = await request(app)
       .post('/availability/toggle')
       .set('Authorization', token)

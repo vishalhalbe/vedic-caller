@@ -1,9 +1,9 @@
 /**
  * Integration tests — critical flows and edge cases
  */
-const request = require('supertest');
-const app = require('../app');
-const { Call, User } = require('../models');
+const request  = require('supertest');
+const app      = require('../app');
+const supabase = require('../config/db');
 
 let _seq = 0;
 async function registerAndLogin() {
@@ -14,16 +14,18 @@ async function registerAndLogin() {
   return { token: `Bearer ${res.body.token}`, userId: res.body.user_id };
 }
 
-/** Directly credit wallet in DB — only for tests that need balance to start a call */
 async function giveBalance(userId, amount = 500) {
-  await User.update({ wallet_balance: amount }, { where: { id: userId } });
+  await supabase.from('users').update({ wallet_balance: amount }).eq('id', userId);
 }
 
-/** Reset test DB state: cancel active calls and restore astrologer availability */
 async function resetCallState() {
-  const { Astrologer } = require('../models');
-  await Call.update({ status: 'cancelled' }, { where: { status: 'active' } });
-  await Astrologer.update({ is_available: true }, { where: {} });
+  await supabase.from('calls').update({ status: 'cancelled' }).eq('status', 'active');
+  await supabase.from('astrologers').update({ is_available: true }).neq('id', '00000000-0000-0000-0000-000000000000');
+}
+
+async function getAvailableAstrologer() {
+  const res = await request(app).get('/astrologer');
+  return res.body[0];
 }
 
 beforeEach(resetCallState);
@@ -33,139 +35,98 @@ describe('Full call flow — start, end, deduction', () => {
     const { token, userId } = await registerAndLogin();
     await giveBalance(userId);
 
-    // Get initial balance
-    const initRes = await request(app)
-      .get('/wallet/balance')
-      .set('Authorization', token);
+    const initRes = await request(app).get('/wallet/balance').set('Authorization', token);
     const initBalance = initRes.body.balance;
 
-    // Create a call (using hardcoded astrologer from seed data)
-    const astrologers = await request(app).get('/astrologer');
-    const astro = astrologers.body[0];
+    const astro = await getAvailableAstrologer();
     expect(astro).toBeDefined();
 
     const startRes = await request(app)
-      .post('/call/start')
-      .set('Authorization', token)
+      .post('/call/start').set('Authorization', token)
       .send({ astrologer_id: astro.id });
     expect(startRes.status).toBe(200);
     const callId = startRes.body.call_id;
 
-    // End the call immediately
     const endRes = await request(app)
-      .post('/call/end')
-      .set('Authorization', token)
+      .post('/call/end').set('Authorization', token)
       .send({ call_id: callId });
     expect(endRes.status).toBe(200);
     const { cost } = endRes.body;
     expect(cost).toBeGreaterThanOrEqual(0);
 
-    // Check balance was deducted exactly once
-    const finalRes = await request(app)
-      .get('/wallet/balance')
-      .set('Authorization', token);
-    const finalBalance = finalRes.body.balance;
-
-    expect(initBalance - finalBalance).toBeCloseTo(cost, 2);
+    const finalRes = await request(app).get('/wallet/balance').set('Authorization', token);
+    expect(initBalance - finalRes.body.balance).toBeCloseTo(cost, 2);
   });
 
   it('retried /call/end does not double-deduct', async () => {
     const { token, userId } = await registerAndLogin();
     await giveBalance(userId);
 
-    const astrologers = await request(app).get('/astrologer');
-    const astro = astrologers.body[0];
-
+    const astro = await getAvailableAstrologer();
     const startRes = await request(app)
-      .post('/call/start')
-      .set('Authorization', token)
+      .post('/call/start').set('Authorization', token)
       .send({ astrologer_id: astro.id });
     const callId = startRes.body.call_id;
 
-    const initRes = await request(app)
-      .get('/wallet/balance')
-      .set('Authorization', token);
-    const initBalance = initRes.body.balance;
+    const initBalance = (await request(app).get('/wallet/balance').set('Authorization', token)).body.balance;
 
-    // End call twice (simulating a retry)
     const end1 = await request(app)
-      .post('/call/end')
-      .set('Authorization', token)
+      .post('/call/end').set('Authorization', token)
       .send({ call_id: callId });
     expect(end1.status).toBe(200);
     const cost1 = end1.body.cost;
 
     const end2 = await request(app)
-      .post('/call/end')
-      .set('Authorization', token)
+      .post('/call/end').set('Authorization', token)
       .send({ call_id: callId });
-    // Second end should fail (call is already completed)
     expect(end2.status).toBe(400);
 
-    // Check balance was deducted only once
-    const finalRes = await request(app)
-      .get('/wallet/balance')
-      .set('Authorization', token);
-    const finalBalance = finalRes.body.balance;
-
+    const finalBalance = (await request(app).get('/wallet/balance').set('Authorization', token)).body.balance;
     expect(initBalance - finalBalance).toBeCloseTo(cost1, 2);
   });
 
   it('cannot start call with unavailable astrologer', async () => {
     const { token } = await registerAndLogin();
 
-    // Seed data has astrologers with is_available=false
-    const astrologers = await request(app).get('/astrologer');
-    const unavailable = astrologers.body.find(a => !a.is_available);
+    const astro = await getAvailableAstrologer();
+    if (!astro) return;
+    await supabase.from('astrologers').update({ is_available: false }).eq('id', astro.id);
 
-    if (unavailable) {
-      const res = await request(app)
-        .post('/call/start')
-        .set('Authorization', token)
-        .send({ astrologer_id: unavailable.id });
-      expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/not available/i);
-    }
+    const res = await request(app)
+      .post('/call/start').set('Authorization', token)
+      .send({ astrologer_id: astro.id });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/not available/i);
   });
 
   it('cannot start call with insufficient balance', async () => {
     const { token } = await registerAndLogin();
+    // balance = 0 after register
 
-    const astrologers = await request(app).get('/astrologer');
-    const expensiveAstro = astrologers.body.find(a => a.rate_per_minute > 50);
+    const astro = await getAvailableAstrologer();
+    if (!astro) return;
 
-    if (expensiveAstro) {
-      const res = await request(app)
-        .post('/call/start')
-        .set('Authorization', token)
-        .send({ astrologer_id: expensiveAstro.id });
-      expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/insufficient/i);
-    }
+    const res = await request(app)
+      .post('/call/start').set('Authorization', token)
+      .send({ astrologer_id: astro.id });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/insufficient/i);
   });
 
   it('/call/start reads rate from DB, not client body', async () => {
     const { token, userId } = await registerAndLogin();
     await giveBalance(userId);
 
-    const astrologers = await request(app).get('/astrologer');
-    const astro = astrologers.body[0];
-
-    // Try to pass a fake rate in the body — should be ignored
+    const astro = await getAvailableAstrologer();
     const res = await request(app)
-      .post('/call/start')
-      .set('Authorization', token)
-      .send({
-        astrologer_id: astro.id,
-        rate: 0.01, // attempt to manipulate billing
-      });
-
+      .post('/call/start').set('Authorization', token)
+      .send({ astrologer_id: astro.id, rate: 0.01 });
     expect(res.status).toBe(200);
 
-    // Verify the actual rate from the DB was used (compare as floats)
-    const call = await Call.findByPk(res.body.call_id);
-    expect(parseFloat(call.rate_per_minute)).toBe(parseFloat(astro.rate_per_minute));
+    const { data: call } = await supabase
+      .from('calls').select('rate_per_minute').eq('id', res.body.call_id).single();
     expect(parseFloat(call.rate_per_minute)).not.toBe(0.01);
+    expect(parseFloat(call.rate_per_minute)).toBe(parseFloat(astro.rate_per_minute));
   });
 });
 
@@ -186,8 +147,7 @@ describe('Call state validation', () => {
     const { token, userId } = await registerAndLogin();
     await giveBalance(userId);
 
-    const astrologers = await request(app).get('/astrologer');
-    const astro = astrologers.body[0];
+    const astro = await getAvailableAstrologer();
 
     // Start first call
     const res1 = await request(app)
@@ -211,18 +171,8 @@ describe('Astrologer availability guard', () => {
   it('GET /astrologer returns only available astrologers', async () => {
     const res = await request(app).get('/astrologer');
     expect(res.status).toBe(200);
-
-    const all = res.body;
-    const unavailable = all.filter(a => !a.is_available);
-
-    // Seed data has some unavailable, so this should be true
-    if (unavailable.length > 0) {
-      expect(unavailable.length).toBeGreaterThan(0);
-    }
-
-    // All returned should be available
-    const allAvailable = all.every(a => a.is_available === true);
-    expect(allAvailable).toBe(true);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.every(a => a.is_available === true)).toBe(true);
   });
 });
 
@@ -231,28 +181,24 @@ describe('Astrologer availability lifecycle', () => {
     const { token, userId } = await registerAndLogin();
     await giveBalance(userId);
 
-    const astrologers = await request(app).get('/astrologer');
-    const astro = astrologers.body[0];
+    const astro = await getAvailableAstrologer();
     expect(astro.is_available).toBe(true);
 
-    // Start call — astrologer should become unavailable
     const startRes = await request(app)
-      .post('/call/start')
-      .set('Authorization', token)
+      .post('/call/start').set('Authorization', token)
       .send({ astrologer_id: astro.id });
     expect(startRes.status).toBe(200);
 
-    const { Astrologer } = require('../models');
-    const duringCall = await Astrologer.findByPk(astro.id, { attributes: ['is_available'] });
+    const { data: duringCall } = await supabase
+      .from('astrologers').select('is_available').eq('id', astro.id).single();
     expect(duringCall.is_available).toBe(false);
 
-    // End call — astrologer should become available again
     await request(app)
-      .post('/call/end')
-      .set('Authorization', token)
+      .post('/call/end').set('Authorization', token)
       .send({ call_id: startRes.body.call_id });
 
-    const afterCall = await Astrologer.findByPk(astro.id, { attributes: ['is_available'] });
+    const { data: afterCall } = await supabase
+      .from('astrologers').select('is_available').eq('id', astro.id).single();
     expect(afterCall.is_available).toBe(true);
   });
 
@@ -262,28 +208,21 @@ describe('Astrologer availability lifecycle', () => {
     await giveBalance(user1.userId);
     await giveBalance(user2.userId);
 
-    const astrologers = await request(app).get('/astrologer');
-    const astro = astrologers.body[0];
+    const astro = await getAvailableAstrologer();
 
-    // User 1 starts call — marks astrologer unavailable
     const res1 = await request(app)
-      .post('/call/start')
-      .set('Authorization', user1.token)
+      .post('/call/start').set('Authorization', user1.token)
       .send({ astrologer_id: astro.id });
     expect(res1.status).toBe(200);
 
-    // User 2 tries to call the same astrologer — should be rejected
     const res2 = await request(app)
-      .post('/call/start')
-      .set('Authorization', user2.token)
+      .post('/call/start').set('Authorization', user2.token)
       .send({ astrologer_id: astro.id });
     expect(res2.status).toBe(400);
     expect(res2.body.error).toMatch(/not available/i);
 
-    // Cleanup: end user1's call
     await request(app)
-      .post('/call/end')
-      .set('Authorization', user1.token)
+      .post('/call/end').set('Authorization', user1.token)
       .send({ call_id: res1.body.call_id });
   });
 });

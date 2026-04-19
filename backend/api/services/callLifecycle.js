@@ -41,7 +41,7 @@ exports.endCall = async (userId, callId) => {
   if (call.status !== 'active') throw new Error('Call already ended');
 
   const endedAt         = new Date();
-  const durationSeconds = Math.floor((endedAt - new Date(call.started_at)) / 1000);
+  const durationSeconds = Math.max(0, Math.floor((endedAt - new Date(call.started_at)) / 1000));
 
   return { call, durationSeconds, endedAt };
 };

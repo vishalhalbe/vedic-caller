@@ -1,10 +1,10 @@
 /**
  * Payment flow + webhook integration tests
  */
-const request = require('supertest');
-const crypto  = require('crypto');
-const app     = require('../app');
-const { Order } = require('../models');
+const request  = require('supertest');
+const crypto   = require('crypto');
+const app      = require('../app');
+const supabase = require('../config/db');
 
 let _seq = 0;
 async function registerAndLogin() {
@@ -70,7 +70,8 @@ describe('POST /payment/create-order', () => {
       .set('Authorization', token)
       .send({ amount: 200 });
     expect(res.status).toBe(200);
-    const order = await Order.findByPk(res.body.order_id);
+    const { data: order } = await supabase
+      .from('orders').select('*').eq('id', res.body.order_id).single();
     expect(order).not.toBeNull();
     expect(order.status).toBe('created');
     expect(parseFloat(order.amount)).toBe(200);
@@ -146,8 +147,8 @@ describe('POST /payment/success', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.balance).toBeCloseTo(100, 1);
 
-    // Order should now be marked paid
-    const order = await Order.findByPk(orderId);
+    const { data: order } = await supabase
+      .from('orders').select('status').eq('id', orderId).single();
     expect(order.status).toBe('paid');
   });
 

@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
-    "test": "jest",
-    "test:ci": "jest --forceExit --ci",
+    "test": "jest --runInBand",
+    "test:ci": "jest --runInBand --forceExit --ci",
     "test:e2e": "playwright test --config=playwright.config.js",
     "test:e2e:ui": "playwright test --config=playwright.config.js --headed",
     "test:e2e:flutter": "playwright test --config=playwright.config.js tests/e2e/flutter_ui.spec.js",
@@ -30,5 +30,8 @@
     "jest": "^29.7.0",
     "nodemon": "^3.0.2",
     "supertest": "^6.3.3"
+  },
+  "jest": {
+    "testPathIgnorePatterns": ["/node_modules/", "/tests/e2e/"]
   }
 }

@@ -72,8 +72,8 @@ router.post('/start', auth, async (req, res, next) => {
 router.post('/end', auth, async (req, res, next) => {
   try {
     const { call_id } = req.body;
-    const { call, durationSeconds, endedAt } = await endCall(req.user.id, call_id);
-    const result = await finaliseCall(call, durationSeconds, endedAt);
+    const { call, durationSeconds } = await endCall(req.user.id, call_id);
+    const result = await finaliseCall(call, durationSeconds);
     res.json(result);
   } catch (err) {
     if (['Active call not found', 'Call already ended', 'Insufficient balance'].includes(err.message)) {

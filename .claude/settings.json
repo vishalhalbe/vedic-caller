@@ -33,7 +33,16 @@
     "allow": [
       "mcp__playwright__*",
       "mcp__razorpay__*",
-      "mcp__supabase__*"
+      "mcp__supabase__*",
+      "Bash(npx playwright*)",
+      "Bash(npm test*)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "command": "node -e \"console.log('\\n=== FEATURE GATE — run before next feature ===\\n1. cd backend/api && npx playwright test --reporter=list\\n2. Check screenshots: backend/api/test-results/\\n3. HTML report:      backend/api/playwright-report/index.html\\n4. Jest suite:       cd backend/api && npm test\\n5. Gap analysis:     review TASKS.md open items\\n============================================\\n')\""
+      }
     ]
   }
 }
