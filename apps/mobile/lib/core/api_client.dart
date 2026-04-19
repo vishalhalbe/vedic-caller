@@ -1,7 +1,15 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'token_storage.dart';
 
-const String _baseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://10.0.2.2:3000');
+const String _envUrl = String.fromEnvironment('API_BASE_URL');
+
+// Android emulator uses 10.0.2.2 to reach host localhost.
+// Web and desktop run on the host itself, so localhost:3000 is correct.
+String get _baseUrl {
+  if (_envUrl.isNotEmpty) return _envUrl;
+  return kIsWeb ? 'http://localhost:3000' : 'http://10.0.2.2:3000';
+}
 
 class ApiClient {
   final Dio dio = Dio(BaseOptions(
