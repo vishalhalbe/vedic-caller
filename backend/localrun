@@ -1,0 +1,13 @@
+npm install
+
+$env:DB_URI = "postgres://postgres:postgres@localhost:5432/jyotish"
+$env:JWT_SECRET = "testsecretfortesting123456789012345678901234567890"
+$env:RAZORPAY_KEY_SECRET = "test_secret"
+$env:CLEANUP_SECRET = "dev_secret"
+$env:NODE_ENV = "development"
+node app.js
+
+#If you don't have PostgreSQL running locally, the easiest Windows option is Docker Desktop:
+
+#docker run -d --name pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=jyotish -p 5432:5432 postgres:15
+#Then set $env:DB_URI = "postgres://postgres:postgres@localhost:5432/jyotish" and run node app.js.

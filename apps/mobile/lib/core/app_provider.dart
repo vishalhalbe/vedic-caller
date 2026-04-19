@@ -2,11 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/auth_service.dart';
 
-// ── Service providers ────────────────────────────────────────
-final authProvider = Provider((ref) => AuthService());
-
 // Re-export wallet so screens only import app_provider
 export '../features/wallet/wallet_provider.dart';
+
+// ── Service providers ────────────────────────────────────────
+final authProvider = Provider((ref) => AuthService());
 
 // ── Razorpay keys ────────────────────────────────────────────
 // Injected at build time via --dart-define. NEVER hardcode these.

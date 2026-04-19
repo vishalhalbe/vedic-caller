@@ -1,0 +1,29 @@
+{
+  "defaultMode": "bypassPermissions",
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"],
+      "env": {
+        "PLAYWRIGHT_BROWSERS_PATH": "0"
+      }
+    },
+    "razorpay": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "razorpay-mcp-stdio",
+        "--key-id",
+        "rzp_test_SeRTfVw7lUHcbn",
+        "--key-secret",
+        "otuH0GLATYyWD99YNjJTAKbT"
+      ]
+    }
+  },
+  "permissions": {
+    "allow": [
+      "mcp__playwright__*",
+      "mcp__razorpay__*"
+    ]
+  }
+}
