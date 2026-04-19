@@ -249,3 +249,10 @@ $$;
 GRANT EXECUTE ON FUNCTION public.wallet_deduct  TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.wallet_credit  TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.start_call     TO anon, authenticated;
+
+-- ── 9. Fix users table for custom auth (not Supabase Auth) ──
+-- Drop FK to auth.users — backend manages its own user IDs
+ALTER TABLE public.users DROP CONSTRAINT IF EXISTS users_id_fkey;
+-- Ensure id auto-generates UUID when not supplied
+ALTER TABLE public.users ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE public.users ALTER COLUMN name SET DEFAULT '';
