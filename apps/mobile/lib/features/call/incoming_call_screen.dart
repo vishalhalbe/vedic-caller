@@ -92,7 +92,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
     } catch (_) {}
 
     if (!mounted) return;
-    context.pop();
+    Navigator.of(context).pop();
   }
 
   @override

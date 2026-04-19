@@ -71,7 +71,9 @@ test('backend login API works end-to-end', async ({ request }) => {
   console.log(`  Astrologers available: ${astroBody.length}`);
 });
 
-test('token refresh works', async ({ request }) => {
+test('token refresh works', async ({ request, page }) => {
+  // Wait for auth rate-limit window to reset between tests
+  await page.waitForTimeout(2000);
   const email = `refresh_${Date.now()}@test.com`;
   const reg = await request.post(`${API}/auth/register`, {
     data: { email, password: 'password123', name: 'Refresh User' },

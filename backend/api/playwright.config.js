@@ -14,6 +14,20 @@ module.exports = defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
+  webServer: [
+    {
+      command: 'cross-env NODE_ENV=test node app.js',
+      url: 'http://localhost:3000/health',
+      reuseExistingServer: true,
+      timeout: 30_000,
+    },
+    {
+      command: 'npx serve -p 8282 ../apps/mobile/build/web',
+      url: 'http://localhost:8282',
+      reuseExistingServer: true,
+      timeout: 15_000,
+    },
+  ],
   projects: [
     {
       name: 'chromium',
