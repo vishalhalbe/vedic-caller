@@ -49,12 +49,24 @@ router.post('/razorpay', express.raw({ type: 'application/json' }), async (req, 
         return res.status(400).json({ error: 'user_id mismatch' });
       }
 
+      if (order.status === 'paid') {
+        return res.json({ status: 'ok' });
+      }
+
+      // Atomically claim the order — only the first webhook fires the credit
+      const { data: claimed } = await supabase
+        .from('orders')
+        .update({ status: 'paid' })
+        .eq('id', orderId)
+        .eq('status', 'created')
+        .select('id');
+
+      if (!claimed || claimed.length === 0) {
+        return res.json({ status: 'ok' });
+      }
+
       const amountInr = parseFloat(order.amount);
       await atomicCredit(order.user_id, amountInr, payment.id);
-
-      if (order.status !== 'paid') {
-        await supabase.from('orders').update({ status: 'paid' }).eq('id', orderId);
-      }
     }
 
     res.json({ status: 'ok' });

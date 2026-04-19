@@ -30,5 +30,13 @@ const requireAdmin = async (req, res, next) => {
   }
 };
 
+const requireAstrologer = (req, res, next) => {
+  if (req.user?.role !== 'astrologer') {
+    return res.status(403).json({ error: 'Astrologer access only' });
+  }
+  next();
+};
+
 module.exports = auth;
-module.exports.requireAdmin = requireAdmin;
+module.exports.requireAdmin      = requireAdmin;
+module.exports.requireAstrologer = requireAstrologer;

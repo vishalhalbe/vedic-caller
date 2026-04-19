@@ -1,10 +1,18 @@
 import '../core/api_client.dart';
 
 class AuthTokens {
-  final String accessToken;
-  final String refreshToken;
-  final bool   isAdmin;
-  AuthTokens({required this.accessToken, required this.refreshToken, this.isAdmin = false});
+  final String  accessToken;
+  final String  refreshToken;
+  final bool    isAdmin;
+  final String  role;          // 'seeker' | 'astrologer'
+  final String? astrologerId;
+  AuthTokens({
+    required this.accessToken,
+    required this.refreshToken,
+    this.isAdmin       = false,
+    this.role          = 'seeker',
+    this.astrologerId,
+  });
 }
 
 class AuthService {
@@ -19,6 +27,7 @@ class AuthService {
       accessToken:  res.data['token']         as String,
       refreshToken: res.data['refresh_token'] as String,
       isAdmin:      res.data['is_admin']       == true,
+      role:         'seeker',
     );
   }
 
@@ -32,6 +41,34 @@ class AuthService {
       accessToken:  res.data['token']         as String,
       refreshToken: res.data['refresh_token'] as String,
       isAdmin:      res.data['is_admin']       == true,
+      role:         'seeker',
+    );
+  }
+
+  Future<AuthTokens> astrologerLogin(String email, String password) async {
+    final res = await _api.post('/astrologer/auth/login', data: {
+      'email':    email.trim().toLowerCase(),
+      'password': password,
+    });
+    return AuthTokens(
+      accessToken:   res.data['token']          as String,
+      refreshToken:  '',
+      role:          'astrologer',
+      astrologerId:  res.data['astrologer_id']  as String?,
+    );
+  }
+
+  Future<AuthTokens> astrologerRegister(String name, String email, String password) async {
+    final res = await _api.post('/astrologer/auth/register', data: {
+      'name':     name.trim(),
+      'email':    email.trim().toLowerCase(),
+      'password': password,
+    });
+    return AuthTokens(
+      accessToken:   res.data['token']          as String,
+      refreshToken:  '',
+      role:          'astrologer',
+      astrologerId:  res.data['astrologer_id']  as String?,
     );
   }
 

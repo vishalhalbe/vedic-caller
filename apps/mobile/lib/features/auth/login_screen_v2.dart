@@ -16,9 +16,10 @@ class _LoginScreenState extends State<LoginScreen> {
   final _password  = TextEditingController();
   final _name      = TextEditingController();
 
-  bool _isRegister     = false;
-  bool _loading        = false;
-  bool _obscurePass    = true;
+  bool    _isRegister     = false;
+  bool    _loading        = false;
+  bool    _obscurePass    = true;
+  bool    _isAstrologer   = false;
   String? _error;
 
   @override
@@ -34,16 +35,36 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() { _loading = true; _error = null; });
 
     try {
-      final svc    = AuthService();
-      final tokens = _isRegister
-          ? await svc.register(_email.text, _password.text, name: _name.text.trim())
-          : await svc.login(_email.text, _password.text);
-
+      final svc     = AuthService();
       final storage = TokenStorage();
+      AuthTokens tokens;
+
+      if (_isAstrologer) {
+        tokens = _isRegister
+            ? await svc.astrologerRegister(_name.text.trim(), _email.text, _password.text)
+            : await svc.astrologerLogin(_email.text, _password.text);
+      } else {
+        tokens = _isRegister
+            ? await svc.register(_email.text, _password.text, name: _name.text.trim())
+            : await svc.login(_email.text, _password.text);
+      }
+
       await storage.save(tokens.accessToken);
-      await storage.saveRefresh(tokens.refreshToken);
+      await storage.saveRole(tokens.role);
+      if (tokens.refreshToken.isNotEmpty) {
+        await storage.saveRefresh(tokens.refreshToken);
+      }
       await storage.saveIsAdmin(tokens.isAdmin);
-      if (mounted) context.go('/home');
+      if (tokens.astrologerId != null) {
+        await storage.saveAstrologerId(tokens.astrologerId!);
+      }
+
+      if (!mounted) return;
+      if (tokens.role == 'astrologer') {
+        context.go('/astrologer/dashboard');
+      } else {
+        context.go('/home');
+      }
     } catch (e) {
       setState(() {
         final msg = e.toString().toLowerCase();
@@ -84,7 +105,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: const TextStyle(color: Colors.white54),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 24),
+
+                // Role toggle
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.07),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      _roleTab('Seeker',      !_isAstrologer),
+                      _roleTab('Astrologer',   _isAstrologer),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
 
                 // Name field — register only
                 if (_isRegister) ...[
@@ -177,6 +213,34 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _roleTab(String label, bool active) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() {
+          _isAstrologer = label == 'Astrologer';
+          _isRegister   = false;
+          _error        = null;
+        }),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: active ? Colors.amber.shade600 : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color:      active ? Colors.black : Colors.white54,
+              fontWeight: active ? FontWeight.bold : FontWeight.normal,
+              fontSize:   14,
             ),
           ),
         ),

@@ -1,5 +1,18 @@
 {
-  "defaultMode": "bypassPermissions",
+  "permissions": {
+    "allow": [
+      "mcp__playwright__*",
+      "mcp__supabase__*",
+      "Bash(npx playwright*)",
+      "Bash(npm test*)",
+      "Bash(npm run*)",
+      "Bash(node *)",
+      "Bash(git *)",
+      "Read(**)",
+      "Write(**)",
+      "Edit(**)"
+    ]
+  },
   "mcpServers": {
     "playwright": {
       "command": "npx",
@@ -7,17 +20,6 @@
       "env": {
         "PLAYWRIGHT_BROWSERS_PATH": "0"
       }
-    },
-    "razorpay": {
-      "command": "cmd",
-      "args": [
-        "/c",
-        "razorpay-mcp-stdio",
-        "--key-id",
-        "rzp_test_SeRTfVw7lUHcbn",
-        "--key-secret",
-        "otuH0GLATYyWD99YNjJTAKbT"
-      ]
     },
     "supabase": {
       "command": "npx",
@@ -29,19 +31,15 @@
       ]
     }
   },
-  "permissions": {
-    "allow": [
-      "mcp__playwright__*",
-      "mcp__razorpay__*",
-      "mcp__supabase__*",
-      "Bash(npx playwright*)",
-      "Bash(npm test*)"
-    ]
-  },
   "hooks": {
     "Stop": [
       {
-        "command": "node -e \"console.log('\\n=== FEATURE GATE — run before next feature ===\\n1. cd backend/api && npx playwright test --reporter=list\\n2. Check screenshots: backend/api/test-results/\\n3. HTML report:      backend/api/playwright-report/index.html\\n4. Jest suite:       cd backend/api && npm test\\n5. Gap analysis:     review TASKS.md open items\\n============================================\\n')\""
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"console.log('\\n=== FEATURE GATE — run before next feature ===\\n1. cd backend/api && npx playwright test --reporter=list\\n2. Check screenshots: backend/api/test-results/\\n3. HTML report:      backend/api/playwright-report/index.html\\n4. Jest suite:       cd backend/api && npm test\\n5. Gap analysis:     review TASKS.md open items\\n============================================\\n')\""
+          }
+        ]
       }
     ]
   }

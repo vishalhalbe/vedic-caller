@@ -20,6 +20,8 @@ const webhookRoutes      = require('./routes/webhook_v2');
 const metricsRoutes      = require('./routes/metrics');
 const adminRoutes          = require('./routes/admin');
 const adminBootstrapRoutes = require('./routes/adminBootstrap');
+const astrologerAuthRoutes = require('./routes/astrologerAuth');
+const astrologerMeRoutes   = require('./routes/astrologerMe');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -58,9 +60,15 @@ app.get('/health', async (req, res) => {
   }
 });
 
-app.use('/auth', authLimiter, authRoutes);
+// authLimiter on login/register/refresh only — logout excluded (DoS via NAT IP exhaustion)
+app.use('/auth', (req, res, next) => {
+  if (req.path === '/logout') return next();
+  return authLimiter(req, res, next);
+}, authRoutes);
 app.use('/call', callRoutes);
 app.use('/wallet', walletRoutes);
+app.use('/astrologer/auth', authLimiter, astrologerAuthRoutes);
+app.use('/astrologer', astrologerMeRoutes);
 app.use('/astrologer', astrologerRoutes);
 app.use('/availability', availabilityRoutes);
 app.use('/callHistory', callHistoryRoutes);

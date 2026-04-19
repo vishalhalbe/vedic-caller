@@ -1,22 +1,22 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_skill/flutter_skill.dart';
 import 'package:go_router/go_router.dart';
+import 'core/api_client.dart';
 import 'core/token_storage.dart';
 import 'features/auth/login_screen_v2.dart';
 import 'features/astrologer/astrologer_list_screen.dart';
+import 'features/astrologer/astrologer_dashboard_screen.dart';
+import 'features/astrologer/earnings_screen.dart';
 import 'features/call/call_screen_v2.dart';
 import 'features/history/history_screen.dart';
 import 'features/wallet/wallet_provider.dart';
 import 'features/admin/admin_screen.dart';
 import 'services/auth_service.dart';
 
-const _apiBaseUrl = String.fromEnvironment(
-  'API_BASE_URL',
-  defaultValue: 'http://10.0.2.2:3000',
-);
+/// Shared ApiClient used in router redirect — ensures interceptor chain is consistent.
+final _routerApiClient = ApiClient();
 
 /// Call from any screen to log the user out.
 Future<void> logoutUser(WidgetRef ref, BuildContext context) async {
@@ -35,18 +35,20 @@ final _router = GoRouter(
     final access   = await storage.get();
 
     if (access != null) {
-      // Token string present — ApiClient's 401 interceptor handles expiry silently
-      return onLogin ? '/home' : null;
+      if (!onLogin) return null;
+      final role = await storage.getRole();
+      return role == 'astrologer' ? '/astrologer/dashboard' : '/home';
     }
 
     // No access token — try to restore session with refresh token
     final refresh = await storage.getRefresh();
     if (refresh != null) {
       try {
-        final res = await Dio(BaseOptions(baseUrl: _apiBaseUrl))
-            .post('/auth/refresh', data: {'refresh_token': refresh});
-        await storage.save(res.data['token'] as String);
-        await storage.saveRefresh(res.data['refresh_token'] as String);
+        final res = await _routerApiClient.post(
+            '/auth/refresh', data: {'refresh_token': refresh});
+        final body = res.data as Map<String, dynamic>;
+        await storage.save(body['token'] as String);
+        await storage.saveRefresh(body['refresh_token'] as String);
         return onLogin ? '/home' : null;
       } catch (_) {
         // Refresh token invalid/expired — clear and force login
@@ -80,11 +82,34 @@ final _router = GoRouter(
       path: '/admin',
       builder: (context, state) => const AdminScreen(),
     ),
+    GoRoute(
+      path: '/astrologer/dashboard',
+      builder: (context, state) => const AstrologerDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/astrologer/earnings',
+      builder: (context, state) => const EarningsScreen(),
+    ),
   ],
   initialLocation: '/login',
 );
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    if (kReleaseMode) {
+      // TODO(ops): forward to crash reporting (Sentry / Firebase Crashlytics)
+      debugPrint('[fatal] ${details.exceptionAsString()}');
+    }
+  };
+
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('[unhandled] $error\n$stack');
+    return true;
+  };
+
   // flutter-skill: gives AI agents live eyes & hands inside the app (debug only)
   if (kDebugMode) FlutterSkillBinding.ensureInitialized();
   runApp(const ProviderScope(child: JyotishApp()));

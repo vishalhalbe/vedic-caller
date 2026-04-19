@@ -1,4 +1,5 @@
 const express    = require('express');
+const crypto     = require('crypto');
 const router     = express.Router();
 const auth       = require('../middleware/authMiddleware');
 const supabase   = require('../config/db');
@@ -87,7 +88,12 @@ router.post('/cleanup', async (req, res, next) => {
   try {
     const secret   = req.headers['x-cleanup-secret'];
     const expected = process.env.CLEANUP_SECRET;
-    if (!expected || secret !== expected) {
+    if (!expected || !secret) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const secBuf = Buffer.from(secret);
+    const expBuf = Buffer.from(expected);
+    if (secBuf.length !== expBuf.length || !crypto.timingSafeEqual(secBuf, expBuf)) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
