@@ -2,7 +2,7 @@
 
 > **Legend:** ✅ Done · 🔴 Critical · 🟠 High · 🟡 Medium · ⬜ Pending
 >
-> Last updated: 2026-04-16 (session 8 — all S7 findings resolved, 80/81 tests passing)  
+> Last updated: 2026-04-19 (session 10 — Supabase migration complete, 11/11 E2E pass, multi-role audit)  
 > Branch convention: `fix/<task-id>-<slug>` or work directly on `main` for hotfixes.
 
 ---
@@ -296,3 +296,117 @@
 | S8-LOW-01 | `GET /astrologer` has no pagination — will slow as catalog grows | `routes/astrologer.js` | ⬜ Deferred until > 100 astrologers |
 | S8-LOW-02 | Agora 55-min limit hardcoded in client — server token TTL not returned | `routes/call.js`, `call_screen_v2.dart` | ⬜ Documented limitation |
 | S8-LOW-03 | Double email lowercasing (client + server) — harmless but redundant | `auth_service.dart` | ⬜ Deferred |
+
+---
+
+## Session 9–10 Completed
+
+| Fix | File | Status |
+|-----|------|--------|
+| Supabase migration: replace Sequelize ORM with @supabase/supabase-js | `config/db.js`, all routes | ✅ Done |
+| Schema applied to Supabase: drop auth FK, UUID defaults, RPCs | `migrations/20260419_*` | ✅ Done |
+| `authMiddleware.requireAdmin` — was still using deleted Sequelize User model | `middleware/authMiddleware.js` | ✅ Fixed |
+| `callLifecycle.finaliseCall` — non-atomic 3-step deduct+update+credit replaced with `end_call` RPC | `services/callLifecycle.js`, `migrations/20260420_*` | ✅ Fixed |
+| `payment_simple.js /success` double-credit race — atomic UPDATE WHERE status=created | `routes/payment_simple.js` | ✅ Fixed |
+| `webhook_v2.js` — user_id from notes not verified against orders.user_id | `routes/webhook_v2.js` | ✅ Fixed |
+| `api_client.dart` default URL broken for Flutter web (10.0.2.2 → kIsWeb check) | `apps/mobile/lib/core/api_client.dart` | ✅ Fixed |
+| E2E login flow tests added (register/login/wallet/astrologers, token refresh) | `tests/e2e/login_flow.spec.js` | ✅ Done |
+| .gitignore expanded: test-results, build/, Android generated files | `.gitignore` | ✅ Done |
+| CLAUDE.md + SKILL.md updated: Sequelize references removed | `CLAUDE.md`, `SKILL.md` | ✅ Done |
+| E2E test suite: 11/11 passing | `tests/e2e/` | ✅ Done |
+
+---
+
+## Session 10 Audit Findings
+
+### 🔒 Security Engineer (Session 10)
+
+| ID | Finding | File | Severity | Status |
+|----|---------|------|----------|--------|
+| S10-SEC-01 | Webhook `atomicCredit` called before order status claimed — same double-credit race as payment_simple (different code path) | `routes/webhook_v2.js:49-56` | 🔴 Critical | ⬜ Open |
+| S10-SEC-02 | `/call/cleanup` secret compared with `===` not `timingSafeEqual` | `routes/call.js:88-89` | 🔴 Critical | ⬜ Open |
+| S10-SEC-03 | `authLimiter` applied to `/auth/logout` — DoS via IP exhaustion from NAT | `app.js:61` | 🟠 High | ⬜ Open |
+| S10-SEC-04 | `verifyPayment` in dev mode — confirm test-mode HMAC does not silently pass in staging | `routes/payment_simple.js` | 🟡 Medium | ⬜ Needs review |
+
+### 📱 Flutter Engineer (Session 10)
+
+| ID | Finding | File | Severity | Status |
+|----|---------|------|----------|--------|
+| S10-FL-01 | Router `redirect` creates raw `Dio` instance — bypasses ApiClient interceptor, duplicate refresh path | `main.dart` (router) | 🟠 High | ⬜ Open |
+| S10-FL-02 | No `FlutterError.onError` or `PlatformDispatcher.instance.onError` in main() | `main.dart` | 🟠 High | ⬜ Open |
+| S10-FL-03 | `MainShell` admin state loaded once in `initState` — not reactive to auth changes | `main.dart` (MainShell) | 🟡 Medium | ⬜ Open |
+| S10-FL-04 | No registration screen — login only, no sign-up flow visible | `features/auth/` | 🟠 High | ⬜ Open |
+
+### 🏗️ Product / Feature Gaps (Session 10)
+
+| ID | Feature | Priority | Status |
+|----|---------|----------|--------|
+| F-01 | Astrologer login + role-based routing (separate entry from seeker) | 🔴 P0 | ⬜ Not started |
+| F-02 | Astrologer dashboard: online/offline toggle, active call status, earnings balance | 🔴 P0 | ⬜ Not started |
+| F-03 | Incoming call notification to astrologer (Supabase Realtime) | 🔴 P0 | ⬜ Not started |
+| F-04 | Call accept / reject screen for astrologer | 🔴 P0 | ⬜ Not started |
+| F-05 | Astrologer earnings screen + withdrawal request | 🟠 P1 | ⬜ Not started |
+| F-06 | Push notifications — FCM for missed calls when app backgrounded | 🟠 P1 | ⬜ Not started |
+| F-07 | Ratings & reviews: post-call, display on astrologer card | 🟠 P1 | ⬜ Not started |
+| F-08 | Seeker registration screen in Flutter UI (currently login-only) | 🟠 P1 | ⬜ Not started |
+| F-09 | Astrologer profile page (bio, specialization, reviews, photo) | 🟡 P2 | ⬜ Not started |
+| F-10 | Photo upload endpoint + S3/Supabase storage | 🟡 P2 | ⬜ Deferred (S7-LOW-01) |
+| F-11 | Astrologer KYC / onboarding flow | 🟡 P2 | ⬜ Not started |
+| F-12 | Production deployment: hosted env, Dockerfile tested, observability | 🟠 P1 | ⬜ Planned |
+| F-13 | Seeker wallet top-up screen (dedicated page, not just widget) | 🟡 P2 | ⬜ Not started |
+| F-14 | Refund / dispute handling | 🟡 P2 | ⬜ Not started |
+| F-15 | Pagination on `GET /astrologer` (deferred until >100 records) | ⬜ P3 | ⬜ Deferred (S8-LOW-01) |
+
+---
+
+## Sprint Plan — Next Sessions
+
+### Sprint 1 · Astrologer Auth + Role Routing (P0)
+Covers: F-01, S10-FL-04
+1. DB migration: add `email`, `password_hash` to `astrologers` table
+2. Backend: `POST /astrologer/auth/login` → JWT with `role:'astrologer'` + `astrologer_id`
+3. Backend: `requireAstrologer` middleware
+4. Flutter: role selector on login screen OR separate astrologer login entry
+5. Flutter: post-login routing — seeker → `AstrologerListScreen`, astrologer → `AstrologerDashboardScreen`
+
+### Sprint 2 · Astrologer Dashboard + Availability (P0)
+Covers: F-02, F-03
+1. Backend: `POST /astrologer/me/availability` (auth'd as astrologer, toggles own row)
+2. Flutter: `astrologer_dashboard_screen.dart` — toggle, earnings balance, active call indicator
+3. Supabase Realtime: subscribe to `calls` table INSERT for this astrologer → incoming call alert
+
+### Sprint 3 · Call Accept/Reject (P0)
+Covers: F-03, F-04
+1. Flutter: `incoming_call_screen.dart` — Accept / Decline buttons
+2. Backend: `POST /call/decline/:call_id` — marks call declined, restores astrologer availability
+3. Flutter: accepted call navigates to `call_screen_astrologer.dart` (timer, end call)
+
+### Sprint 4 · Earnings + Withdrawal (P1)
+Covers: F-05
+1. Backend: `GET /astrologer/me/earnings` — summary + paginated history
+2. Backend: `POST /astrologer/me/withdrawal` — creates withdrawal request record
+3. Flutter: `earnings_screen.dart`
+
+### Sprint 5 · Security Hardening (P0 — blocking production)
+Covers: S10-SEC-01, S10-SEC-02, S10-SEC-03, S10-FL-01, S10-FL-02
+1. `webhook_v2.js`: apply UPDATE WHERE status=created before atomicCredit
+2. `call.js /cleanup`: use `crypto.timingSafeEqual` for secret comparison
+3. `app.js`: remove `authLimiter` from `/auth/logout`
+4. Flutter `main.dart`: fix router Dio instance, add global error handlers
+
+---
+
+## Product Completion Scorecard
+
+| Area | % Complete | Notes |
+|------|-----------|-------|
+| Seeker auth + wallet | 95% | Registration UI missing from Flutter |
+| Seeker call flow | 90% | Works end-to-end; no ratings post-call |
+| Seeker history | 100% | Done |
+| Admin panel | 70% | Availability toggle admin-only; no user mgmt |
+| Astrologer app | 5% | DB columns exist; zero UX built |
+| Payments / Razorpay | 85% | Webhook race fix needed |
+| Security hardening | 80% | 2 CRITICALs remain (S10-SEC-01/02) |
+| Testing (E2E) | 60% | 11 tests; no astrologer-path tests |
+| Production deploy | 10% | Dockerfile exists; no hosted env |
+| **Overall MVP** | **~45%** | Astrologer app is the blocking gap |
