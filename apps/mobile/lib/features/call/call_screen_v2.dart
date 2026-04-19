@@ -12,12 +12,21 @@ class CallScreen extends ConsumerStatefulWidget {
   final String astrologerId;
   final String astrologerName;
   final double rate;
+  // Astrologer-side: pre-resolved channel/token from incoming call notification
+  final String? prebuiltChannel;
+  final String? prebuiltToken;
+  final String? prebuiltCallId;
+  final bool isAstrologer;
 
   const CallScreen({
     super.key,
     required this.astrologerId,
     required this.astrologerName,
     required this.rate,
+    this.prebuiltChannel,
+    this.prebuiltToken,
+    this.prebuiltCallId,
+    this.isAstrologer = false,
   });
 
   @override
@@ -109,10 +118,20 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 
   Future<void> _startCall() async {
     try {
-      final data = await CallService().startCall(widget.astrologerId);
-      _callId            = data['call_id']  as String?;
-      final channel      = data['channel']  as String;
-      final agoraToken   = data['token']    as String;
+      final String channel;
+      final String agoraToken;
+
+      if (widget.prebuiltChannel != null && widget.prebuiltToken != null) {
+        // Astrologer path — channel + token already known from incoming call
+        _callId    = widget.prebuiltCallId;
+        channel    = widget.prebuiltChannel!;
+        agoraToken = widget.prebuiltToken!;
+      } else {
+        final data = await CallService().startCall(widget.astrologerId);
+        _callId    = data['call_id'] as String?;
+        channel    = data['channel'] as String;
+        agoraToken = data['token']   as String;
+      }
 
       // 5. Join the Agora channel with the server-issued token
       await _engine.joinChannel(
@@ -164,18 +183,20 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     int?    finalDuration;
     double? finalCost;
 
-    try {
-      final result = await CallService().endCall(_callId);
-      finalDuration = result['duration'] as int?;
-      finalCost     = (result['cost'] as num?)?.toDouble();
-      await ref.read(walletProvider.notifier).refresh();
-    } catch (_) {
-      // Navigate back regardless — server will eventually time out the call
+    if (!widget.isAstrologer) {
+      try {
+        final result = await CallService().endCall(_callId);
+        finalDuration = result['duration'] as int?;
+        finalCost     = (result['cost'] as num?)?.toDouble();
+        await ref.read(walletProvider.notifier).refresh();
+      } catch (_) {
+        // Navigate back regardless — server will eventually time out the call
+      }
     }
 
     if (!mounted) return;
-    // Only show summary if a call was actually established on the server.
-    if (_callId != null) {
+    // Only show summary for seekers (billing is seeker-side).
+    if (_callId != null && !widget.isAstrologer) {
       await _showCallSummary(
         duration: finalDuration ?? _seconds,
         cost:     finalCost ?? (widget.rate / 60) * _seconds,

@@ -4,6 +4,7 @@ const router     = express.Router();
 const auth       = require('../middleware/authMiddleware');
 const supabase   = require('../config/db');
 const { startCall, endCall, finaliseCall } = require('../services/callLifecycle');
+const { requireAstrologer } = require('../middleware/authMiddleware');
 
 function buildAgoraToken(channelName, uid) {
   const appId   = process.env.AGORA_APP_ID;
@@ -56,6 +57,12 @@ router.post('/start', auth, async (req, res, next) => {
     const channelName = `jc_${req.user.id}_${Date.now()}`;
     const { channel, token } = buildAgoraToken(channelName, 0);
 
+    // Persist channel + token so astrologer can retrieve them on accept
+    await supabase
+      .from('calls')
+      .update({ channel, agora_token: token })
+      .eq('id', session.call_id);
+
     res.json({
       call_id:    session.call_id,
       channel,
@@ -80,6 +87,69 @@ router.post('/end', auth, async (req, res, next) => {
     if (['Active call not found', 'Call already ended', 'Insufficient balance'].includes(err.message)) {
       return res.status(400).json({ error: err.message });
     }
+    next(err);
+  }
+});
+
+// GET /call/incoming — astrologer polls for an active call directed at them
+router.get('/incoming', auth, requireAstrologer, async (req, res, next) => {
+  try {
+    const { data: call } = await supabase
+      .from('calls')
+      .select('id, user_id, started_at, rate_per_minute, channel, agora_token')
+      .eq('astrologer_id', req.user.id)
+      .eq('status', 'active')
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!call) return res.json({ call: null });
+
+    // Attach seeker name for display
+    const { data: seeker } = await supabase
+      .from('users')
+      .select('name, email')
+      .eq('id', call.user_id)
+      .maybeSingle();
+
+    res.json({
+      call: {
+        ...call,
+        seeker_name: seeker?.name || seeker?.email || 'Seeker',
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /call/decline/:call_id — astrologer declines incoming call
+router.post('/decline/:call_id', auth, requireAstrologer, async (req, res, next) => {
+  try {
+    const { call_id } = req.params;
+
+    const { data: call } = await supabase
+      .from('calls')
+      .select('id, astrologer_id, status')
+      .eq('id', call_id)
+      .eq('astrologer_id', req.user.id)
+      .maybeSingle();
+
+    if (!call) return res.status(404).json({ error: 'Call not found' });
+    if (call.status !== 'active') return res.status(400).json({ error: 'Call already ended' });
+
+    await supabase
+      .from('calls')
+      .update({ status: 'cancelled', ended_at: new Date().toISOString() })
+      .eq('id', call_id);
+
+    await supabase
+      .from('astrologers')
+      .update({ is_available: true })
+      .eq('id', req.user.id);
+
+    res.json({ status: 'declined' });
+  } catch (err) {
     next(err);
   }
 });

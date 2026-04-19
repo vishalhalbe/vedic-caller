@@ -1,9 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/api_client.dart';
-import '../../core/token_storage.dart';
 import '../../main.dart';
+import '../call/incoming_call_screen.dart';
 
 // ── providers ────────────────────────────────────────────────────────────────
 
@@ -27,6 +28,63 @@ class AstrologerDashboardScreen extends ConsumerStatefulWidget {
 class _AstrologerDashboardScreenState
     extends ConsumerState<AstrologerDashboardScreen> {
   bool _togglingAvailability = false;
+  Timer? _pollTimer;
+  bool _incomingCallNavigating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startPolling();
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) => _pollIncoming());
+  }
+
+  Future<void> _pollIncoming() async {
+    if (_incomingCallNavigating) return;
+    final isAvailable = ref.read(_availabilityProvider);
+    // Also check the loaded profile value
+    final profileSnap = ref.read(_dashboardProvider);
+    final profileAvailable = profileSnap.valueOrNull?['is_available'] as bool? ?? false;
+    final available = isAvailable ?? profileAvailable;
+    if (!available) return;
+
+    try {
+      final res = await ApiClient().get('/call/incoming');
+      final call = (res.data as Map?)?['call'];
+      if (call == null || !mounted) return;
+
+      _incomingCallNavigating = true;
+      _pollTimer?.cancel();
+
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => IncomingCallScreen(
+            callId: call['id'] as String,
+            channelName: call['channel'] as String? ?? '',
+            agoraToken: call['agora_token'] as String? ?? '',
+            seekerName: call['seeker_name'] as String? ?? 'Seeker',
+            ratePerMinute:
+                double.tryParse(call['rate_per_minute']?.toString() ?? '0') ?? 0,
+          ),
+        ),
+      );
+
+      _incomingCallNavigating = false;
+      _startPolling();
+      ref.invalidate(_dashboardProvider);
+    } on Object catch (_) {
+      // Network error — silently ignore and retry next tick
+    }
+  }
 
   Future<void> _toggleAvailability(bool current) async {
     setState(() => _togglingAvailability = true);

@@ -75,6 +75,10 @@ final _router = GoRouter(
           astrologerId: extra['astrologer_id'] as String,
           astrologerName: extra['name'] as String,
           rate: (extra['rate'] as num).toDouble(),
+          prebuiltChannel: extra['channel'] as String?,
+          prebuiltToken: extra['token'] as String?,
+          prebuiltCallId: extra['call_id'] as String?,
+          isAstrologer: extra['role'] == 'astrologer',
         );
       },
     ),
