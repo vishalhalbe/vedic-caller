@@ -323,32 +323,33 @@
 
 | ID | Finding | File | Severity | Status |
 |----|---------|------|----------|--------|
-| S10-SEC-01 | Webhook `atomicCredit` called before order status claimed — same double-credit race as payment_simple (different code path) | `routes/webhook_v2.js:49-56` | 🔴 Critical | ⬜ Open |
-| S10-SEC-02 | `/call/cleanup` secret compared with `===` not `timingSafeEqual` | `routes/call.js:88-89` | 🔴 Critical | ⬜ Open |
-| S10-SEC-03 | `authLimiter` applied to `/auth/logout` — DoS via IP exhaustion from NAT | `app.js:61` | 🟠 High | ⬜ Open |
+| S10-SEC-01 | Webhook `atomicCredit` called before order status claimed | `routes/webhook_v2.js` | 🔴 Critical | ✅ Fixed (session 11) |
+| S10-SEC-02 | `/call/cleanup` secret compared with `===` not `timingSafeEqual` | `routes/call.js` | 🔴 Critical | ✅ Fixed (session 11) |
+| S10-SEC-03 | `authLimiter` applied to `/auth/logout` — DoS via IP exhaustion from NAT | `app.js` | 🟠 High | ✅ Fixed (session 11) |
 | S10-SEC-04 | `verifyPayment` in dev mode — confirm test-mode HMAC does not silently pass in staging | `routes/payment_simple.js` | 🟡 Medium | ⬜ Needs review |
+| S10-SEC-05 | settings.json had hardcoded Razorpay key+secret and bypassPermissions mode | `.claude/settings.json` | 🔴 Critical | ✅ Fixed (session 11) |
 
-### 📱 Flutter Engineer (Session 10)
+### 📱 Flutter Engineer (Session 10–11)
 
 | ID | Finding | File | Severity | Status |
 |----|---------|------|----------|--------|
-| S10-FL-01 | Router `redirect` creates raw `Dio` instance — bypasses ApiClient interceptor, duplicate refresh path | `main.dart` (router) | 🟠 High | ⬜ Open |
-| S10-FL-02 | No `FlutterError.onError` or `PlatformDispatcher.instance.onError` in main() | `main.dart` | 🟠 High | ⬜ Open |
-| S10-FL-03 | `MainShell` admin state loaded once in `initState` — not reactive to auth changes | `main.dart` (MainShell) | 🟡 Medium | ⬜ Open |
-| S10-FL-04 | No registration screen — login only, no sign-up flow visible | `features/auth/` | 🟠 High | ⬜ Open |
+| S10-FL-01 | Router `redirect` creates raw `Dio` instance — bypasses ApiClient interceptor | `main.dart` | 🟠 High | ✅ Fixed (session 11) |
+| S10-FL-02 | No `FlutterError.onError` or `PlatformDispatcher.instance.onError` in main() | `main.dart` | 🟠 High | ✅ Fixed (session 11) |
+| S10-FL-03 | `MainShell` admin state loaded once in `initState` — not reactive to auth changes | `main.dart` | 🟡 Medium | ⬜ Open |
+| S10-FL-04 | No registration screen — login only, no sign-up flow visible | `features/auth/` | 🟠 High | ✅ Fixed (session 11) — role toggle + register |
 
-### 🏗️ Product / Feature Gaps (Session 10)
+### 🏗️ Product / Feature Gaps (Session 10–11)
 
 | ID | Feature | Priority | Status |
 |----|---------|----------|--------|
-| F-01 | Astrologer login + role-based routing (separate entry from seeker) | 🔴 P0 | ⬜ Not started |
-| F-02 | Astrologer dashboard: online/offline toggle, active call status, earnings balance | 🔴 P0 | ⬜ Not started |
-| F-03 | Incoming call notification to astrologer (Supabase Realtime) | 🔴 P0 | ⬜ Not started |
-| F-04 | Call accept / reject screen for astrologer | 🔴 P0 | ⬜ Not started |
-| F-05 | Astrologer earnings screen + withdrawal request | 🟠 P1 | ⬜ Not started |
+| F-01 | Astrologer login + role-based routing | 🔴 P0 | ✅ Done (session 11) |
+| F-02 | Astrologer dashboard: online/offline toggle, earnings balance | 🔴 P0 | ✅ Done (session 11) |
+| F-03 | Incoming call notification to astrologer (Supabase Realtime) | 🔴 P0 | ⬜ Not started — Sprint 3 |
+| F-04 | Call accept / reject screen for astrologer | 🔴 P0 | ⬜ Not started — Sprint 3 |
+| F-05 | Astrologer earnings screen + withdrawal request | 🟠 P1 | ✅ Done (session 11) |
 | F-06 | Push notifications — FCM for missed calls when app backgrounded | 🟠 P1 | ⬜ Not started |
 | F-07 | Ratings & reviews: post-call, display on astrologer card | 🟠 P1 | ⬜ Not started |
-| F-08 | Seeker registration screen in Flutter UI (currently login-only) | 🟠 P1 | ⬜ Not started |
+| F-08 | Seeker registration screen in Flutter UI | 🟠 P1 | ✅ Done (session 11) — role toggle on login screen |
 | F-09 | Astrologer profile page (bio, specialization, reviews, photo) | 🟡 P2 | ⬜ Not started |
 | F-10 | Photo upload endpoint + S3/Supabase storage | 🟡 P2 | ⬜ Deferred (S7-LOW-01) |
 | F-11 | Astrologer KYC / onboarding flow | 🟡 P2 | ⬜ Not started |
@@ -361,38 +362,42 @@
 
 ## Sprint Plan — Next Sessions
 
-### Sprint 1 · Astrologer Auth + Role Routing (P0)
-Covers: F-01, S10-FL-04
-1. DB migration: add `email`, `password_hash` to `astrologers` table
-2. Backend: `POST /astrologer/auth/login` → JWT with `role:'astrologer'` + `astrologer_id`
-3. Backend: `requireAstrologer` middleware
-4. Flutter: role selector on login screen OR separate astrologer login entry
-5. Flutter: post-login routing — seeker → `AstrologerListScreen`, astrologer → `AstrologerDashboardScreen`
+### ✅ Sprint 1 · Astrologer Auth + Role Routing — DONE (session 11)
+Covers: F-01, F-08, S10-FL-04
+- [x] DB migration: `email`, `password_hash` on `astrologers` table
+- [x] `POST /astrologer/auth/register` + `/login` (bcrypt, role-stamped JWT)
+- [x] `requireAstrologer` middleware
+- [x] Flutter: Seeker/Astrologer role toggle on login screen
+- [x] Flutter: post-login routing by role
 
-### Sprint 2 · Astrologer Dashboard + Availability (P0)
-Covers: F-02, F-03
-1. Backend: `POST /astrologer/me/availability` (auth'd as astrologer, toggles own row)
-2. Flutter: `astrologer_dashboard_screen.dart` — toggle, earnings balance, active call indicator
-3. Supabase Realtime: subscribe to `calls` table INSERT for this astrologer → incoming call alert
+### ✅ Sprint 2 · Astrologer Dashboard + Availability — DONE (session 11)
+Covers: F-02, F-05
+- [x] `GET /astrologer/me`, `POST /astrologer/me/availability`
+- [x] `GET /astrologer/me/earnings`, `POST /astrologer/me/withdrawal`
+- [x] Migration: `withdrawal_requests` table
+- [x] Flutter: `AstrologerDashboardScreen` with availability switch + earnings card
+- [x] Flutter: `EarningsScreen` with balance, withdrawal form, recent calls
 
-### Sprint 3 · Call Accept/Reject (P0)
+### ✅ Sprint 5 · Security Hardening — DONE (session 11)
+Covers: S10-SEC-01..03, S10-FL-01..02, settings.json
+- [x] webhook_v2: atomic UPDATE WHERE status=created before atomicCredit
+- [x] call.js: timingSafeEqual for cleanup secret
+- [x] app.js: logout excluded from authLimiter
+- [x] main.dart: shared ApiClient in router, global error handlers
+- [x] settings.json: removed bypassPermissions + hardcoded Razorpay credentials, fixed hooks schema
+
+### Sprint 3 · Incoming Call Flow (P0) — NEXT
 Covers: F-03, F-04
-1. Flutter: `incoming_call_screen.dart` — Accept / Decline buttons
-2. Backend: `POST /call/decline/:call_id` — marks call declined, restores astrologer availability
-3. Flutter: accepted call navigates to `call_screen_astrologer.dart` (timer, end call)
+1. Flutter: Supabase Realtime subscription on astrologer dashboard for new calls
+2. Flutter: `incoming_call_screen.dart` — Accept / Decline with countdown timer
+3. Backend: `POST /call/decline/:call_id` — marks declined, restores availability
+4. Flutter: accepted call → navigate to `call_screen_v2.dart` as astrologer role
 
-### Sprint 4 · Earnings + Withdrawal (P1)
-Covers: F-05
-1. Backend: `GET /astrologer/me/earnings` — summary + paginated history
-2. Backend: `POST /astrologer/me/withdrawal` — creates withdrawal request record
-3. Flutter: `earnings_screen.dart`
-
-### Sprint 5 · Security Hardening (P0 — blocking production)
-Covers: S10-SEC-01, S10-SEC-02, S10-SEC-03, S10-FL-01, S10-FL-02
-1. `webhook_v2.js`: apply UPDATE WHERE status=created before atomicCredit
-2. `call.js /cleanup`: use `crypto.timingSafeEqual` for secret comparison
-3. `app.js`: remove `authLimiter` from `/auth/logout`
-4. Flutter `main.dart`: fix router Dio instance, add global error handlers
+### Sprint 4 · Ratings & Notifications (P1)
+Covers: F-06, F-07
+1. Backend + Flutter: post-call rating (1–5 stars) stored on `calls` table
+2. Display average rating on astrologer card
+3. FCM push for missed incoming calls (background app)
 
 ---
 
@@ -400,13 +405,15 @@ Covers: S10-SEC-01, S10-SEC-02, S10-SEC-03, S10-FL-01, S10-FL-02
 
 | Area | % Complete | Notes |
 |------|-----------|-------|
-| Seeker auth + wallet | 95% | Registration UI missing from Flutter |
+| Seeker auth + wallet | 100% | Registration + login done; role selector added |
 | Seeker call flow | 90% | Works end-to-end; no ratings post-call |
 | Seeker history | 100% | Done |
 | Admin panel | 70% | Availability toggle admin-only; no user mgmt |
-| Astrologer app | 5% | DB columns exist; zero UX built |
-| Payments / Razorpay | 85% | Webhook race fix needed |
-| Security hardening | 80% | 2 CRITICALs remain (S10-SEC-01/02) |
-| Testing (E2E) | 60% | 11 tests; no astrologer-path tests |
+| Astrologer auth + routing | 100% | Login, register, role JWT, dashboard routing |
+| Astrologer dashboard | 70% | Availability toggle + earnings done; no incoming call UI yet |
+| Astrologer earnings | 90% | Screen + withdrawal request done; admin approval UI missing |
+| Payments / Razorpay | 100% | Webhook race fixed; atomic order claim in both paths |
+| Security hardening | 97% | All CRITICALs fixed; S10-SEC-04 (staging check) remains |
+| Testing (E2E) | 60% | 11 tests passing; no astrologer-path E2E tests yet |
 | Production deploy | 10% | Dockerfile exists; no hosted env |
-| **Overall MVP** | **~45%** | Astrologer app is the blocking gap |
+| **Overall MVP** | **~65%** | Incoming call flow (Sprint 3) is the remaining P0 blocker |
