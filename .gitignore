@@ -22,6 +22,7 @@ apps/mobile/.flutter-plugins-dependencies
 apps/mobile/android/local.properties
 apps/mobile/android/.gradle/
 apps/mobile/android/app/build/
+apps/mobile/android/app/src/main/java/
 
 # IDE
 .vscode/
