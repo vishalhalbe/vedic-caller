@@ -1,20 +1,20 @@
 -- ============================================================
 -- Sprint 9: platform fee column + updated end_call RPC
--- Run via: supabase db push  (or paste entire file at once in SQL editor)
+-- Applied 2026-04-20 via Supabase SQL editor (3 separate queries)
 -- ============================================================
 
--- 1. Add platform_fee column (safe on existing tables)
+-- Query 1 (run without RLS enforcement):
 ALTER TABLE public.calls
   ADD COLUMN IF NOT EXISTS platform_fee numeric(10,2) NOT NULL DEFAULT 0;
 
--- 2. Atomic earnings-deduct RPC (used by admin withdrawal approval)
+-- Query 2 (run without RLS enforcement):
 CREATE OR REPLACE FUNCTION public.astrologer_earnings_deduct(
   p_astrologer_id uuid,
   p_amount        numeric
 ) RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER
-AS $func$
+SET search_path = public
+AS $$
 DECLARE
   v_balance numeric;
 BEGIN
@@ -35,11 +35,13 @@ BEGIN
      SET earnings_balance = earnings_balance - p_amount
    WHERE id = p_astrologer_id;
 END;
-$func$;
+$$;
 
 GRANT EXECUTE ON FUNCTION public.astrologer_earnings_deduct TO anon, authenticated;
 
--- 3. end_call RPC v2: 20% platform fee, astrologer earns 80%
+-- Query 3 — end_call v2: 20% platform fee, astrologer earns 80%
+-- NOTE: uses SET search_path instead of SECURITY DEFINER to avoid
+-- Supabase auth status check failure in the SQL editor.
 CREATE OR REPLACE FUNCTION public.end_call(
   p_call_id       uuid,
   p_duration_secs integer,
@@ -47,8 +49,8 @@ CREATE OR REPLACE FUNCTION public.end_call(
   p_reference     text
 ) RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
-AS $func$
+SET search_path = public
+AS $$
 DECLARE
   v_call           record;
   v_balance        numeric;
@@ -56,7 +58,6 @@ DECLARE
   v_platform_fee   numeric;
   v_astrologer_net numeric;
 BEGIN
-  -- Lock call row
   SELECT * INTO v_call
     FROM public.calls
    WHERE id = p_call_id
@@ -70,11 +71,9 @@ BEGIN
     RAISE EXCEPTION 'Call already ended';
   END IF;
 
-  -- 20 % platform commission
   v_platform_fee   := round(p_cost * 0.20, 2);
   v_astrologer_net := p_cost - v_platform_fee;
 
-  -- Idempotency: skip wallet deduction if already processed
   SELECT id INTO v_existing_txn
     FROM public.transactions
    WHERE reference = p_reference;
@@ -102,7 +101,6 @@ BEGIN
     ON CONFLICT (reference) DO NOTHING;
   END IF;
 
-  -- Update call with fee breakdown
   UPDATE public.calls
      SET status           = 'completed',
          ended_at         = now(),
@@ -111,7 +109,6 @@ BEGIN
          platform_fee     = v_platform_fee
    WHERE id = p_call_id;
 
-  -- Credit astrologer net (80%)
   UPDATE public.astrologers
      SET is_available     = true,
          earnings_balance = earnings_balance + v_astrologer_net
@@ -124,6 +121,6 @@ BEGIN
     'astrologer_net', v_astrologer_net
   );
 END;
-$func$;
+$$;
 
 GRANT EXECUTE ON FUNCTION public.end_call TO anon, authenticated;
