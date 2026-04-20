@@ -432,17 +432,24 @@ Covers: F-12
 
 ## Product Completion Scorecard
 
+> Last updated: 2026-04-20 (session 13 — 101/101 E2E tests, security + edge case suite, Flutter UI tests)
+
 | Area | % Complete | Notes |
 |------|-----------|-------|
-| Seeker auth + wallet | 100% | Registration + login done; role selector added |
-| Seeker call flow | 90% | Works end-to-end; no ratings post-call |
-| Seeker history | 100% | Done |
-| Admin panel | 70% | Availability toggle admin-only; no user mgmt |
-| Astrologer auth + routing | 100% | Login, register, role JWT, dashboard routing |
-| Astrologer dashboard | 90% | Availability, earnings, incoming call polling + accept/decline done |
+| Seeker auth + wallet | 100% | Registration, login, role selector, token refresh |
+| Seeker call flow | 100% | Start/end, billing, post-call rating dialog, call summary |
+| Seeker history | 100% | Paginated, date labels, unwraps {data} |
+| Admin panel | 70% | Availability toggle admin-only; no user management UI |
+| Astrologer auth + routing | 100% | Register, login, role JWT, dashboard routing |
+| Astrologer dashboard | 95% | Availability, earnings, 5-sec polling, incoming call, accept/decline |
 | Astrologer earnings | 90% | Screen + withdrawal request done; admin approval UI missing |
-| Payments / Razorpay | 100% | Webhook race fixed; atomic order claim in both paths |
-| Security hardening | 97% | All CRITICALs fixed; S10-SEC-04 (staging check) remains |
-| Testing (E2E) | 95% | 59/59 tests passing with screenshots; fixtures.js helper |
-| Production deploy | 40% | Dockerfile exists; pino logging; env validation; CI fixed; Docker Desktop not tested |
-| **Overall MVP** | **~90%** | Sprints 1–7 done; FCM push (F-06) and Flutter unit tests (TASK-06) remain |
+| Ratings & reviews | 100% | POST /call/rate, avg_rating view, stars on cards, profile reviews |
+| Astrologer profile | 100% | Bio, specialty, experience, reviews, Call CTA, SliverAppBar |
+| Wallet screen | 100% | Dedicated page, balance card, Razorpay top-up, transaction history |
+| Payments / Razorpay | 100% | Webhook race fixed; atomic order claim; HMAC verified |
+| Security hardening | 97% | All CRITICALs fixed; S10-SEC-04 (staging HMAC check) remains |
+| Testing — E2E API | 100% | 73 API tests across 9 spec files; all passing with screenshots |
+| Testing — Flutter UI | 85% | 28 UI story tests; semantics-based; no full form-fill flow yet |
+| Testing — Security | 100% | 22 tests: isolation, SQL injection, idempotency, edge cases |
+| Production deploy | 40% | Dockerfile, docker-compose, pino logging, env validation, CI/CD; not deployed |
+| **Overall MVP** | **~93%** | Sprints 1–7 done; F-06 (FCM push), TASK-06 (Flutter unit tests), deployment remain |

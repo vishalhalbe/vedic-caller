@@ -18,33 +18,52 @@ JyotishConnect is a production-ready **Vedic astrology voice consulting platform
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Flutter Mobile App                        │
-│  LoginScreen → HomeScreen → AstrologerList → CallScreen     │
-│                          ↓                                   │
-│              WalletWidget + HistoryScreen                    │
-└──────────────────────┬──────────────────────────────────────┘
-                       │ HTTP + JWT
-┌──────────────────────▼──────────────────────────────────────┐
-│                  Node.js / Express API                       │
-│  /auth  /astrologer  /call  /wallet  /payment  /webhook     │
-│                                                             │
-│  Middleware: JWT auth → Rate limiter → Idempotency          │
-│  Services:  callLifecycle → walletEngine → billingEngine    │
-└──────────────────────┬──────────────────────────────────────┘
-                       │ @supabase/supabase-js (REST + RPC)
-┌──────────────────────▼──────────────────────────────────────┐
-│              PostgreSQL (Supabase)                           │
-│   users · astrologers · calls · transactions                 │
-│   RLS policies: users own their data; astrologers public     │
-└─────────────────────────────────────────────────────────────┘
-                       │ webhooks / SDK
-┌──────────────────────▼──────────────────────────────────────┐
-│   Razorpay (payments)   │   Agora RTC (voice)               │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                    Flutter Mobile App (12 screens)               │
+│                                                                  │
+│  SEEKER FLOW                      ASTROLOGER FLOW                │
+│  /login → /home                   /login → /astrologer-home      │
+│  /astrologer/:id → /call          /earnings → /call (astrologer) │
+│  /history  /wallet  /profile      incoming_call_screen           │
+│                                                                  │
+│  State: Riverpod (FutureProvider + StateNotifier)                │
+│  Nav:   GoRouter (path params + extra)                           │
+└─────────────────────────┬────────────────────────────────────────┘
+                          │ HTTP/JWT  (Dio + interceptors)
+┌─────────────────────────▼────────────────────────────────────────┐
+│                Node.js / Express API (13 route files)            │
+│                                                                  │
+│  /auth           register, login, refresh, logout                │
+│  /astrologer/auth register, login (role=astrologer JWT)          │
+│  /astrologer     list (ratings), :id profile                     │
+│  /astrologer/me  me, availability, earnings, withdrawal          │
+│  /call           start, end, decline, incoming, cleanup          │
+│  /callHistory    paginated history                               │
+│  /wallet         balance, transactions, test-credit              │
+│  /payment        create-order, success                           │
+│  /webhook        Razorpay payment.captured                       │
+│  /admin          stats, astrologers, seed                        │
+│  /health  /metrics                                               │
+│                                                                  │
+│  Middleware: pino-http → CORS → Rate limiter → JWT → Idempotency │
+│  Services:  callLifecycle · walletEngine · walletService         │
+└─────────────────────────┬────────────────────────────────────────┘
+                          │ @supabase/supabase-js (REST + RPC)
+┌─────────────────────────▼────────────────────────────────────────┐
+│              PostgreSQL via Supabase (16 migrations)             │
+│                                                                  │
+│  users · astrologers · calls · transactions · orders             │
+│  refresh_tokens · withdrawal_requests                            │
+│  VIEW: astrologer_avg_ratings                                    │
+│  RPC:  end_call() — atomic deduct + update + credit              │
+└─────────────────────────┬────────────────────────────────────────┘
+                          │ webhooks / SDK
+┌─────────────────────────▼────────────────────────────────────────┐
+│   Razorpay (payments + webhook)  │  Agora RTC v6 (voice calls)   │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-**Architecture Style:** Layered monolith — presentation (Flutter) → API (Express) → service layer → data layer
+**Architecture Style:** Layered monolith — presentation (Flutter) → API (Express) → service layer → data layer (Supabase)
 
 ---
 
