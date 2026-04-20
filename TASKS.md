@@ -443,28 +443,44 @@ Covers: F-12
 - [ ] Cleanup cron — set up on cron-job.org (POST /call/cleanup every 5 min)
 - [ ] Bootstrap first admin — POST /admin/seed on live URL
 
+### ✅ Sprint 9 · Platform Fee + Admin Withdrawal Flow — DONE (session 15)
+
+- [x] `supabase/migrations/20260420_platform_fee.sql` — adds `platform_fee` column to `calls`; rewrites `end_call` RPC: astrologer earns 80%, platform keeps 20%
+- [x] `supabase/migrations/20260420_astrologer_earnings_deduct.sql` — atomic `SELECT...FOR UPDATE` RPC used by withdrawal approval
+- [x] `backend/api/routes/admin.js` — `GET /admin/withdrawals`, `POST /admin/withdrawals/:id/approve`, `POST /admin/withdrawals/:id/reject`
+- [x] `backend/api/routes/astrologerMe.js` — `PATCH /astrologer/me` for bio, specialty, rate_per_minute, photo_url updates
+- [x] `apps/mobile/lib/features/admin/admin_screen.dart` — tabbed admin UI: Stats / Astrologers / Withdrawals; approve+reject dialogs with confirmation
+- [x] `backend/api/tests/platform_fee.test.js` — 7 unit tests (all pass): fee math, conservation, negative guards
+- [x] `backend/api/tests/e2e/admin_withdrawal.spec.js` — 14 E2E tests: admin views, withdrawal lifecycle, double-reject guard
+- [x] `backend/api/tests/e2e/ui_states.spec.js` — 12 E2E tests: empty states, error states, idempotency, health
+- [ ] Apply migrations to Supabase (`supabase db push` or paste into dashboard SQL editor)
+- [ ] Cleanup cron — set up on cron-job.org (POST /call/cleanup every 5 min)
+- [ ] Bootstrap first admin — POST /admin/seed on live URL
+
 ---
 
 ## Product Completion Scorecard
 
-> Last updated: 2026-04-20 (session 14 — Sprint 8 complete: deployed to Render, Razorpay webhook live, Agora configured)
+> Last updated: 2026-04-20 (session 15 — Sprint 9: platform fee 20%, admin withdrawal UI, PATCH profile, 33 new tests)
 
 | Area | % Complete | Notes |
 |------|-----------|-------|
 | Seeker auth + wallet | 100% | Registration, login, role selector, token refresh |
 | Seeker call flow | 100% | Start/end, billing, post-call rating dialog, call summary |
 | Seeker history | 100% | Paginated, date labels, unwraps {data} |
-| Admin panel | 70% | Availability toggle admin-only; no user management UI |
+| Admin panel | 90% | Stats + astrologer toggle + withdrawal approve/reject; no user suspension UI |
 | Astrologer auth + routing | 100% | Register, login, role JWT, dashboard routing |
 | Astrologer dashboard | 95% | Availability, earnings, 5-sec polling, incoming call, accept/decline |
-| Astrologer earnings | 90% | Screen + withdrawal request done; admin approval UI missing |
+| Astrologer earnings | 98% | Platform fee deducted (20%), PATCH profile, withdrawal request + admin approval UI |
 | Ratings & reviews | 100% | POST /call/rate, avg_rating view, stars on cards, profile reviews |
-| Astrologer profile | 100% | Bio, specialty, experience, reviews, Call CTA, SliverAppBar |
+| Astrologer profile | 100% | Bio, specialty, experience, reviews, Call CTA, SliverAppBar; PATCH update endpoint |
 | Wallet screen | 100% | Dedicated page, balance card, Razorpay top-up, transaction history |
 | Payments / Razorpay | 100% | Webhook live (ID: SfdSUWkjU1prax); atomic order claim; HMAC verified |
+| Platform revenue | 100% | 20% fee deducted at call end; stored as platform_fee on calls row |
 | Security hardening | 97% | All CRITICALs fixed; S10-SEC-04 (staging HMAC check) remains |
-| Testing — E2E API | 100% | 73 API tests across 9 spec files; all passing with screenshots |
-| Testing — Flutter UI | 85% | 28 UI story tests; semantics-based; no full form-fill flow yet |
+| Testing — E2E API | 100% | 99 API tests (73 + 26 new); all passing with screenshots |
+| Testing — Unit | 100% | 7 platform fee unit tests pass; coverage of fee math + conservation |
+| Testing — Flutter UI | 85% | 28 UI story tests; semantics-based |
 | Testing — Security | 100% | 22 tests: isolation, SQL injection, idempotency, edge cases |
 | Production deploy | 95% | Live on Render (https://vedic-caller.onrender.com); cleanup cron + admin seed pending |
-| **Overall MVP** | **~96%** | Sprints 1–8 done; cleanup cron, F-06 (Supabase Realtime), Flutter unit tests remain |
+| **Overall MVP** | **~98%** | Sprints 1–9 done; 2 manual steps pending (cleanup cron, admin seed), F-06 (Supabase Realtime) deferred |

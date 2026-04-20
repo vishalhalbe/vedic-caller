@@ -82,6 +82,41 @@ router.get('/me/earnings', auth, requireAstrologer, async (req, res, next) => {
   }
 });
 
+// PATCH /astrologer/me — update profile fields
+router.patch('/me', auth, requireAstrologer, async (req, res, next) => {
+  try {
+    const allowed = ['bio', 'specialty', 'photo_url', 'rate_per_minute'];
+    const updates = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No updatable fields provided' });
+    }
+
+    if (updates.rate_per_minute !== undefined) {
+      const rate = parseFloat(updates.rate_per_minute);
+      if (isNaN(rate) || rate <= 0) {
+        return res.status(400).json({ error: 'rate_per_minute must be a positive number' });
+      }
+      updates.rate_per_minute = rate;
+    }
+
+    const { data, error } = await supabase
+      .from('astrologers')
+      .update(updates)
+      .eq('id', req.user.id)
+      .select('id, name, email, rate_per_minute, is_available, earnings_balance, bio, photo_url, specialty')
+      .single();
+
+    if (error) throw new Error(error.message);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /astrologer/me/withdrawal — request payout
 router.post('/me/withdrawal', auth, requireAstrologer, async (req, res, next) => {
   try {
