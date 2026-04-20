@@ -127,13 +127,23 @@ class _AstrologersTab extends StatelessWidget {
           : ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: list.length,
-              itemBuilder: (_, i) => _AstrologerAdminTile(
+              itemBuilder: (ctx, i) => _AstrologerAdminTile(
                 astrologer: list[i] as Map<String, dynamic>,
                 onToggle: (available) async {
-                  await ApiClient().post(
-                      '/admin/astrologers/${list[i]['id']}/toggle',
-                      data: {'available': available});
-                  ref.invalidate(adminAstrologersProvider);
+                  try {
+                    await ApiClient().post(
+                        '/admin/astrologers/${list[i]['id']}/toggle',
+                        data: {'available': available});
+                    ref.invalidate(adminAstrologersProvider);
+                  } on Exception catch (e) {
+                    if (ctx.mounted) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        SnackBar(
+                            content: Text('Toggle failed: $e'),
+                            backgroundColor: Colors.redAccent),
+                      );
+                    }
+                  }
                 },
               ),
             ),
