@@ -384,10 +384,13 @@ All Playwright tests produce screenshots in `backend/api/test-results/`:
 - **Agora credentials** configured — App ID + Certificate set
 
 ### Remaining for Launch 🚀
-1. **GitHub Secrets** — add `SUPABASE_URL`, `SUPABASE_KEY`, `ADMIN_EMAIL`, `RENDER_DEPLOY_HOOK_URL` in GitHub Settings → Secrets → Actions (manual, UI only)
-2. **Supabase Realtime SQL** — run `ALTER PUBLICATION supabase_realtime ADD TABLE calls;` in Supabase SQL editor (one-time, MCP was unavailable)
-3. ~~**Flutter unit tests**~~ ✅ 23/23 passing (`wallet_provider_test.dart` + `auth_service_test.dart`)
-4. **Upgrade Render** — free tier spins down after 15 min idle; upgrade to Starter ($7/mo) for production
+- **Upgrade Render** (optional) — free tier spins down after 15 min idle; upgrade to Starter ($7/mo) for always-on
+
+### All Launch Blockers Cleared ✅
+- GitHub Secrets set (`SUPABASE_URL`, `SUPABASE_KEY`, `ADMIN_EMAIL`, `RENDER_DEPLOY_HOOK_URL`, `ADMIN_SEED_SECRET`)
+- Supabase Realtime enabled on `calls` table
+- Flutter unit tests 23/23 passing
+- CI pipeline fully wired
 
 ### Done Since Last Session ✅
 - `ADMIN_SEED_SECRET` auto-generated and set on Render + GitHub
