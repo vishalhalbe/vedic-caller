@@ -57,10 +57,10 @@ jobs:
           ADMIN_SEED_SECRET: test_admin_seed
           CLEANUP_SECRET: test_cleanup_secret
           PORT: 3000
-        run: npm test -- --forceExit --ci
+        run: npm test -- --forceExit --ci --verbose --json --outputFile=jest-results.json 2>&1
 
       - name: Upload test results
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: jest-results
