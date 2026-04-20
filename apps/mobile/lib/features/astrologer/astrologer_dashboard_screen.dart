@@ -2,7 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/api_client.dart';
+import '../../core/token_storage.dart';
 import '../../main.dart';
 import '../call/incoming_call_screen.dart';
 
@@ -28,43 +30,65 @@ class AstrologerDashboardScreen extends ConsumerStatefulWidget {
 class _AstrologerDashboardScreenState
     extends ConsumerState<AstrologerDashboardScreen> {
   bool _togglingAvailability = false;
-  Timer? _pollTimer;
+  RealtimeChannel? _channel;
   bool _incomingCallNavigating = false;
+  String? _myAstrologerId;
 
   @override
   void initState() {
     super.initState();
-    _startPolling();
+    _initRealtime();
   }
 
   @override
   void dispose() {
-    _pollTimer?.cancel();
+    _channel?.unsubscribe();
     super.dispose();
   }
 
-  void _startPolling() {
-    _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) => _pollIncoming());
+  Future<void> _initRealtime() async {
+    // Resolve our astrologer user ID from stored token
+    _myAstrologerId = await TokenStorage().getAstrologerId();
+    if (_myAstrologerId == null || !mounted) return;
+    _subscribeRealtime();
   }
 
-  Future<void> _pollIncoming() async {
-    if (_incomingCallNavigating) return;
+  void _subscribeRealtime() {
+    _channel?.unsubscribe();
+    _channel = Supabase.instance.client
+        .channel('incoming-calls-$_myAstrologerId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'calls',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'astrologer_id',
+            value: _myAstrologerId!,
+          ),
+          callback: (payload) => _onCallInserted(payload.newRecord),
+        )
+        .subscribe();
+  }
+
+  Future<void> _onCallInserted(Map<String, dynamic> record) async {
+    if (_incomingCallNavigating || !mounted) return;
+
+    final status = record['status'] as String? ?? '';
+    if (status != 'ringing') return;
+
     final isAvailable = ref.read(_availabilityProvider);
-    // Also check the loaded profile value
     final profileSnap = ref.read(_dashboardProvider);
     final profileAvailable = profileSnap.valueOrNull?['is_available'] as bool? ?? false;
-    final available = isAvailable ?? profileAvailable;
-    if (!available) return;
+    if (!(isAvailable ?? profileAvailable)) return;
 
+    // Fetch full call details (agora token not stored in DB row directly)
     try {
       final res = await ApiClient().get('/call/incoming');
       final call = (res.data as Map?)?['call'];
       if (call == null || !mounted) return;
 
       _incomingCallNavigating = true;
-      _pollTimer?.cancel();
-
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => IncomingCallScreen(
@@ -79,10 +103,9 @@ class _AstrologerDashboardScreenState
       );
 
       _incomingCallNavigating = false;
-      _startPolling();
       ref.invalidate(_dashboardProvider);
     } on Object catch (_) {
-      // Network error — silently ignore and retry next tick
+      _incomingCallNavigating = false;
     }
   }
 

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_skill/flutter_skill.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/api_client.dart';
 import 'core/token_storage.dart';
 import 'features/auth/login_screen_v2.dart';
@@ -110,8 +111,19 @@ final _router = GoRouter(
   initialLocation: '/login',
 );
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: const String.fromEnvironment(
+      'SUPABASE_URL',
+      defaultValue: 'https://rddxemcvddhicylsmpfb.supabase.co',
+    ),
+    anonKey: const String.fromEnvironment(
+      'SUPABASE_ANON_KEY',
+      defaultValue: 'sb_publishable_nA-zbOJdphnrV-0dRBqEkQ_pmseOV7r',
+    ),
+  );
 
   FlutterError.onError = (details) {
     FlutterError.presentError(details);

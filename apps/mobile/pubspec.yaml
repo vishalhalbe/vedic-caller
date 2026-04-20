@@ -15,6 +15,7 @@ dependencies:
   flutter_secure_storage: ^9.0.0
   permission_handler: ^11.3.0
   flutter_skill: ^0.9.36
+  supabase_flutter: ^2.5.0
 
 dev_dependencies:
   flutter_test:
