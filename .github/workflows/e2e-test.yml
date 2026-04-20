@@ -6,11 +6,13 @@ on:
     paths:
       - 'backend/api/**'
       - 'supabase/migrations/**'
+      - '.github/workflows/e2e-test.yml'
   pull_request:
     branches: [main]
     paths:
       - 'backend/api/**'
       - 'supabase/migrations/**'
+      - '.github/workflows/e2e-test.yml'
 
 jobs:
   e2e:
