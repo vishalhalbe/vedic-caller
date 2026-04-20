@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../../core/app_provider.dart';
 import '../../services/wallet_service.dart';
@@ -20,6 +21,9 @@ class _WalletWidgetState extends ConsumerState<WalletWidget> {
   // Amount options (INR) — user taps to select
   static const _amounts = [100.0, 500.0, 1000.0];
   double _selectedAmount = 500.0;
+  // null means a chip is selected; non-null means the user typed a custom amount
+  double? _customAmount;
+  final _customController = TextEditingController();
 
   @override
   void initState() {
@@ -33,15 +37,26 @@ class _WalletWidgetState extends ConsumerState<WalletWidget> {
   @override
   void dispose() {
     _razorpay.clear();
+    _customController.dispose();
     super.dispose();
   }
 
+  static const _minAmount = 10.0; // ₹10 minimum top-up
+
+  double get _effectiveAmount => _customAmount ?? _selectedAmount;
+
+  bool get _amountValid => _effectiveAmount >= _minAmount;
+
   // ── Step 1: Create order server-side, then open Razorpay sheet ─────────────
   Future<void> _startTopUp() async {
+    if (!_amountValid) {
+      _showSnack('Minimum top-up is ₹${_minAmount.toStringAsFixed(0)}', isError: true);
+      return;
+    }
     setState(() => _creatingOrder = true);
     try {
       // Backend creates a Razorpay order — required for signature verification
-      final order = await _walletService.createOrder(_selectedAmount);
+      final order = await _walletService.createOrder(_effectiveAmount);
 
       _razorpay.open({
         'key':         kRazorpayKeyId,
@@ -49,7 +64,7 @@ class _WalletWidgetState extends ConsumerState<WalletWidget> {
         'amount':      order['amount'],    // paise, returned from server
         'currency':    'INR',
         'name':        'JyotishConnect',
-        'description': 'Wallet Top-up ₹${_selectedAmount.toStringAsFixed(0)}',
+        'description': 'Wallet Top-up ₹${_effectiveAmount.toStringAsFixed(0)}',
         'theme':       {'color': '#F59E0B'},
       });
     } catch (e) {
@@ -68,14 +83,14 @@ class _WalletWidgetState extends ConsumerState<WalletWidget> {
         orderId:    response.orderId    ?? '',
         paymentId:  response.paymentId  ?? '',
         signature:  response.signature  ?? '',
-        amountInr:  _selectedAmount,
+        amountInr:  _effectiveAmount,
       );
 
       // Update wallet provider with the server-confirmed balance
       ref.read(walletProvider.notifier).setBalance(newBalance);
 
       if (mounted) {
-        _showSnack('₹${_selectedAmount.toStringAsFixed(0)} added successfully!');
+        _showSnack('₹${_effectiveAmount.toStringAsFixed(0)} added successfully!');
       }
     } catch (e) {
       // Payment was captured but credit failed — surface clearly
@@ -145,10 +160,20 @@ class _WalletWidgetState extends ConsumerState<WalletWidget> {
                   ),
                 ],
               ),
-              IconButton(
-                onPressed: () => ref.read(walletProvider.notifier).refresh(),
-                icon: const Icon(Icons.refresh, color: Colors.white38, size: 18),
-                tooltip: 'Refresh balance',
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () => context.push('/wallet'),
+                    icon: const Icon(Icons.account_balance_wallet_outlined,
+                        color: Colors.amber, size: 20),
+                    tooltip: 'Wallet details',
+                  ),
+                  IconButton(
+                    onPressed: () => ref.read(walletProvider.notifier).refresh(),
+                    icon: const Icon(Icons.refresh, color: Colors.white38, size: 18),
+                    tooltip: 'Refresh balance',
+                  ),
+                ],
               ),
             ],
           ),
@@ -158,13 +183,17 @@ class _WalletWidgetState extends ConsumerState<WalletWidget> {
           // ── Amount selector ───────────────────────────────────────────────
           Row(
             children: _amounts.map((amt) {
-              final selected = amt == _selectedAmount;
+              final selected = _customAmount == null && amt == _selectedAmount;
               return Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: ChoiceChip(
                   label: Text('₹${amt.toStringAsFixed(0)}'),
                   selected: selected,
-                  onSelected: (_) => setState(() => _selectedAmount = amt),
+                  onSelected: (_) => setState(() {
+                    _selectedAmount = amt;
+                    _customAmount = null;
+                    _customController.clear();
+                  }),
                   selectedColor: Colors.amber.shade700,
                   backgroundColor: Colors.white.withOpacity(0.07),
                   labelStyle: TextStyle(
@@ -174,6 +203,41 @@ class _WalletWidgetState extends ConsumerState<WalletWidget> {
                 ),
               );
             }).toList(),
+          ),
+
+          const SizedBox(height: 10),
+
+          // ── Custom amount input ───────────────────────────────────────────
+          TextField(
+            controller: _customController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: false),
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Custom amount (₹)',
+              hintStyle: const TextStyle(color: Colors.white38),
+              prefixText: '₹ ',
+              prefixStyle: const TextStyle(color: Colors.white54),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.07),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.12)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.12)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Colors.amber),
+              ),
+            ),
+            onChanged: (val) {
+              final parsed = double.tryParse(val.trim());
+              setState(() => _customAmount = (parsed != null && parsed > 0) ? parsed : null);
+            },
           ),
 
           const SizedBox(height: 12),
@@ -188,7 +252,7 @@ class _WalletWidgetState extends ConsumerState<WalletWidget> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              onPressed: _creatingOrder ? null : _startTopUp,
+              onPressed: (_creatingOrder || !_amountValid) ? null : _startTopUp,
               icon: _creatingOrder
                   ? const SizedBox(
                       width: 16, height: 16,
@@ -197,7 +261,7 @@ class _WalletWidgetState extends ConsumerState<WalletWidget> {
               label: Text(
                 _creatingOrder
                     ? 'Creating order…'
-                    : 'Add ₹${_selectedAmount.toStringAsFixed(0)}',
+                    : 'Add ₹${_effectiveAmount.toStringAsFixed(0)}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),

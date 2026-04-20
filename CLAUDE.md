@@ -6,7 +6,7 @@ Vedic astrology voice consulting platform — Flutter mobile app + Node.js backe
 
 - **Mobile:** `apps/mobile/` (Flutter/Dart)
 - **Backend:** `backend/api/` (Node.js + Express)
-- **Database:** `supabase/migrations/` (PostgreSQL + Sequelize)
+- **Database:** `supabase/migrations/` (PostgreSQL via `@supabase/supabase-js` — Sequelize removed)
 - **Skills:** `skills/` — structured knowledge assets
 - **Workflows:** `workflows/` — Skill_Seekers analysis pipelines
 
@@ -100,6 +100,16 @@ flutter build apk --release
 ### Database
 ```bash
 supabase db push      # Apply migrations
+```
+
+### E2E Tests (Playwright)
+```bash
+cd backend/api
+# Start servers first:
+node app.js &                          # backend on :3000
+npx serve -p 8282 ../../apps/mobile/build/web &  # Flutter web on :8282
+# Run all tests:
+npx playwright test --reporter=list    # 11 tests — all pass
 ```
 
 ---

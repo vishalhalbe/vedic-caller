@@ -1,57 +1,67 @@
-const { Call } = require('../models');
-const { atomicDeduct } = require('./walletEngine');
+const supabase = require('../config/db');
+const { calculateDeduction } = require('./walletService');
 
 exports.startCall = async (userId, astrologerId, rate) => {
-  const call = await Call.create({
-    user_id: userId,
-    astrologer_id: astrologerId,
-    status: 'active',
-    started_at: new Date(),
-    cost: 0,
-    duration_seconds: 0,
-    rate_per_minute: rate,   // stored server-side — client cannot manipulate billing
+  const { data, error } = await supabase.rpc('start_call', {
+    p_user_id:       userId,
+    p_astrologer_id: astrologerId,
+    p_rate:          rate,
   });
 
+  if (error) {
+    if (error.message.includes('not available')) throw new Error('Astrologer is not available');
+    if (error.message.includes('not found'))     throw new Error('Astrologer not found');
+    throw new Error(error.message);
+  }
+
   return {
-    call_id: call.id,
+    call_id:     data.call_id,
     userId,
     astrologerId,
     rate,
-    startTime: call.started_at.getTime(),
-    status: 'active',
+    startTime:   new Date(data.started_at).getTime(),
+    status:      'active',
   };
 };
 
 exports.endCall = async (userId, callId) => {
-  const call = await Call.findOne({
-    where: callId ? { id: callId, user_id: userId } : { user_id: userId, status: 'active' },
-  });
+  let query = supabase.from('calls').select('*').eq('user_id', userId);
 
+  if (callId) {
+    query = query.eq('id', callId);
+  } else {
+    query = query.eq('status', 'active');
+  }
+
+  const { data: calls, error } = await query.limit(1);
+  if (error) throw new Error(error.message);
+
+  const call = calls && calls[0];
   if (!call) throw new Error('Active call not found');
   if (call.status !== 'active') throw new Error('Call already ended');
 
-  const endedAt = new Date();
-  const durationSeconds = Math.floor((endedAt - call.started_at) / 1000);
+  const endedAt         = new Date();
+  const durationSeconds = Math.max(0, Math.floor((endedAt - new Date(call.started_at)) / 1000));
 
-  // Rate is stored per minute — cost is pro-rated per second server-side
-  // Rate must be passed in the request body since call record doesn't store it yet
   return { call, durationSeconds, endedAt };
 };
 
-exports.finaliseCall = async (call, durationSeconds, endedAt) => {
-  // Rate is read from the stored call record — client cannot influence billing
-  const cost = parseFloat(((call.rate_per_minute / 60) * durationSeconds).toFixed(2));
+exports.finaliseCall = async (call, durationSeconds) => {
+  const cost      = parseFloat(calculateDeduction(call.rate_per_minute, durationSeconds).toFixed(2));
+  const reference = `call_end_${call.id}`;
 
-  // Reference tied to call.id so a retried /call/end cannot double-deduct.
-  // The UNIQUE constraint on transactions.reference blocks the second deduction.
-  await atomicDeduct(call.user_id, cost, `call_end_${call.id}`);
-
-  await call.update({
-    status: 'completed',
-    ended_at: endedAt,
-    duration_seconds: durationSeconds,
-    cost,
+  const { data, error } = await supabase.rpc('end_call', {
+    p_call_id:       call.id,
+    p_duration_secs: durationSeconds,
+    p_cost:          cost,
+    p_reference:     reference,
   });
 
-  return { duration: durationSeconds, cost };
+  if (error) {
+    if (error.message.includes('Insufficient balance')) throw new Error('Insufficient balance');
+    if (error.message.includes('Call already ended'))   throw new Error('Call already ended');
+    throw new Error(error.message);
+  }
+
+  return { duration: data.duration, cost: parseFloat(data.cost) };
 };

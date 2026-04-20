@@ -5,13 +5,11 @@ on:
     branches: [main]
     paths:
       - 'backend/api/**'
-      - 'e2e/**'
       - 'supabase/migrations/**'
   pull_request:
     branches: [main]
     paths:
       - 'backend/api/**'
-      - 'e2e/**'
       - 'supabase/migrations/**'
 
 jobs:
@@ -36,9 +34,12 @@ jobs:
           --health-retries 5
 
     env:
-      NODE_ENV: development
-      DB_URI: postgres://postgres:testpass123@localhost:5432/jyotish
+      NODE_ENV: test
+      # Required env vars validated at startup
+      SUPABASE_URL: http://localhost:5432
+      SUPABASE_KEY: ci-placeholder-key
       JWT_SECRET: ci-test-secret-at-least-48-chars-long-for-safety
+      DB_URI: postgres://postgres:testpass123@localhost:5432/jyotish
       RAZORPAY_KEY_ID: rzp_test_placeholder
       RAZORPAY_KEY_SECRET: test_secret_placeholder
       RAZORPAY_WEBHOOK_SECRET: ''
@@ -53,6 +54,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20.x
+          cache: npm
+          cache-dependency-path: backend/api/package-lock.json
 
       - name: Install backend dependencies
         working-directory: backend/api
@@ -67,33 +70,26 @@ jobs:
             psql -h localhost -U postgres -d jyotish -f "$f" || true
           done
 
-      - name: Start backend server
-        working-directory: backend/api
-        run: node app.js &
-        # Give it a moment to bind
-
-      - name: Install E2E dependencies
-        working-directory: e2e
-        run: npm ci
-
       - name: Install Playwright browsers
-        working-directory: e2e
+        working-directory: backend/api
         run: npx playwright install --with-deps chromium
 
-      - name: Wait for backend to be ready
-        run: npx wait-on http://localhost:3000 --timeout 30000
-
-      - name: Run Playwright tests
-        working-directory: e2e
-        env:
-          BASE_URL: http://localhost:3000
-          RAZORPAY_KEY_SECRET: test_secret_placeholder
-        run: npm test
+      - name: Run Playwright E2E tests
+        working-directory: backend/api
+        run: npx playwright test --reporter=list
 
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: e2e/playwright-report/
+          path: backend/api/playwright-report/
+          retention-days: 7
+
+      - name: Upload test screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: backend/api/test-results/
           retention-days: 7

@@ -86,7 +86,8 @@ test.describe('Call Flow', () => {
     // Verify history — duration and cost must match the billing formula
     const histRes = await request.get('/callHistory', auth(token));
     expect(histRes.status()).toBe(200);
-    const history = await histRes.json();
+    const histBody = await histRes.json();
+    const history = histBody.data || histBody; // handle paginated {data} or bare array
     expect(history.length).toBeGreaterThan(0);
     const latest = history[0];
     expect(latest.status).toBe('completed');
@@ -123,7 +124,8 @@ test.describe('Call Flow', () => {
 
     // Verify billing formula from history
     const histRes = await request.get('/callHistory', auth(token));
-    const history = await histRes.json();
+    const histBody = await histRes.json();
+    const history = histBody.data || histBody; // handle paginated {data} or bare array
     const latest = history[0];
     const formulaCost = parseFloat(((35 / 60) * latest.duration_seconds).toFixed(2));
     expect(parseFloat(latest.cost)).toBeCloseTo(formulaCost, 2);

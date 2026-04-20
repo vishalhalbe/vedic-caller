@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../../core/api_client.dart';
 import '../../core/app_provider.dart';
 import '../../services/call_service.dart';
 import '../wallet/wallet_provider.dart';
@@ -11,12 +13,21 @@ class CallScreen extends ConsumerStatefulWidget {
   final String astrologerId;
   final String astrologerName;
   final double rate;
+  // Astrologer-side: pre-resolved channel/token from incoming call notification
+  final String? prebuiltChannel;
+  final String? prebuiltToken;
+  final String? prebuiltCallId;
+  final bool isAstrologer;
 
   const CallScreen({
     super.key,
     required this.astrologerId,
     required this.astrologerName,
     required this.rate,
+    this.prebuiltChannel,
+    this.prebuiltToken,
+    this.prebuiltCallId,
+    this.isAstrologer = false,
   });
 
   @override
@@ -108,10 +119,20 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 
   Future<void> _startCall() async {
     try {
-      final data = await CallService().startCall(widget.astrologerId, widget.rate);
-      _callId            = data['call_id']  as String?;
-      final channel      = data['channel']  as String;
-      final agoraToken   = data['token']    as String;
+      final String channel;
+      final String agoraToken;
+
+      if (widget.prebuiltChannel != null && widget.prebuiltToken != null) {
+        // Astrologer path — channel + token already known from incoming call
+        _callId    = widget.prebuiltCallId;
+        channel    = widget.prebuiltChannel!;
+        agoraToken = widget.prebuiltToken!;
+      } else {
+        final data = await CallService().startCall(widget.astrologerId);
+        _callId    = data['call_id'] as String?;
+        channel    = data['channel'] as String;
+        agoraToken = data['token']   as String;
+      }
 
       // 5. Join the Agora channel with the server-issued token
       await _engine.joinChannel(
@@ -136,10 +157,18 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   }
 
   // ── Call control ───────────────────────────────────────────────────────────
+  // Agora tokens expire after 1 hour — auto-end the call at 55 minutes
+  // to give the user a graceful exit before the token lapses.
+  static const _maxCallSeconds = 55 * 60; // 55 minutes
+
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _seconds++);
+      if (!mounted) return;
+      setState(() => _seconds++);
+      if (_seconds >= _maxCallSeconds && !_ending) {
+        _endCall();
+      }
     });
   }
 
@@ -152,14 +181,176 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       await _engine.leaveChannel();
     } catch (_) {}
 
-    try {
-      await CallService().endCall(_callId);
-      await ref.read(walletProvider.notifier).refresh();
-    } catch (_) {
-      // Navigate back regardless — server will eventually time out the call
+    int?    finalDuration;
+    double? finalCost;
+
+    if (!widget.isAstrologer) {
+      try {
+        final result = await CallService().endCall(_callId);
+        finalDuration = result['duration'] as int?;
+        finalCost     = (result['cost'] as num?)?.toDouble();
+        await ref.read(walletProvider.notifier).refresh();
+      } catch (_) {
+        // Navigate back regardless — server will eventually time out the call
+      }
     }
 
-    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+    // Only show summary + rating for seekers (billing is seeker-side).
+    if (_callId != null && !widget.isAstrologer) {
+      await _showCallSummary(
+        duration: finalDuration ?? _seconds,
+        cost:     finalCost ?? (widget.rate / 60) * _seconds,
+      );
+      if (mounted) {
+        await _showRatingDialog();
+      }
+    }
+
+    if (mounted) context.pop();
+  }
+
+  Future<void> _showCallSummary({required int duration, required double cost}) async {
+    final m = (duration ~/ 60).toString().padLeft(2, '0');
+    final s = (duration  % 60).toString().padLeft(2, '0');
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF131726),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      isDismissible: false,
+      enableDrag: false,
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 36),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.check_circle_outline, color: Colors.greenAccent, size: 48),
+            const SizedBox(height: 12),
+            const Text('Call Ended',
+                style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _summaryTile(label: 'Duration', value: '$m:$s'),
+                _summaryTile(label: 'Charged',  value: '₹${cost.toStringAsFixed(2)}'),
+              ],
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber.shade600,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showRatingDialog() async {
+    int selected = 0;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF131726),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 36),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Rate your session',
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text('How was your call with ${widget.astrologerName}?',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white54, fontSize: 14)),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (i) {
+                  final star = i + 1;
+                  return GestureDetector(
+                    onTap: () => setModalState(() => selected = star),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Icon(
+                        selected >= star ? Icons.star_rounded : Icons.star_outline_rounded,
+                        color: Colors.amber,
+                        size: 44,
+                      ),
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 28),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white54,
+                        side: const BorderSide(color: Colors.white24),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: const Text('Skip'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.amber.shade600,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: selected == 0
+                          ? null
+                          : () async {
+                              Navigator.of(ctx).pop();
+                              try {
+                                await ApiClient().post('/call/rate',
+                                    data: {'call_id': _callId, 'rating': selected});
+                              } catch (_) {
+                                // Rating failure is silent — don't block user
+                              }
+                            },
+                      child: const Text('Submit', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _summaryTile({required String label, required String value}) {
+    return Column(children: [
+      Text(label, style: const TextStyle(color: Colors.white54, fontSize: 13)),
+      const SizedBox(height: 4),
+      Text(value, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+    ]);
   }
 
   Future<void> _toggleMute() async {
@@ -340,7 +531,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
             const SizedBox(height: 28),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.white12),
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => context.pop(),
               child: const Text('Go Back', style: TextStyle(color: Colors.white)),
             ),
           ]),

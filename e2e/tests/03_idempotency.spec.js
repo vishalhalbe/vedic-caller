@@ -43,40 +43,52 @@ test.describe('Idempotency & Double-spend Prevention', () => {
     expect(balance).toBe(500); // NOT 1000
   });
 
-  test('Idempotency-Key header prevents duplicate wallet deductions', async ({ request }) => {
+  test('Idempotency-Key header prevents duplicate payment credits', async ({ request }) => {
+    // Tests that the Idempotency-Key middleware caches the first response.
+    // If the same Idempotency-Key is sent twice, the second gets the cached response.
     const { token } = await register(request);
-    await topUpWallet(request, token, 1000);
 
-    const idempotencyKey = `deduct-${Date.now()}`;
-    const deductPayload = { amount: 100 };
+    const orderRes = await request.post('/payment/create-order', {
+      data: { amount: 200 },
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const order = await orderRes.json();
+    const paymentId = `pay_idem_key_${Date.now()}`;
+    const signature = razorpaySignature(order.order_id, paymentId);
+    const payload = { order_id: order.order_id, payment_id: paymentId, signature };
+
+    const idempotencyKey = `credit-${Date.now()}`;
     const headers = { Authorization: `Bearer ${token}`, 'Idempotency-Key': idempotencyKey };
 
-    const res1 = await request.post('/wallet/deduct', { data: deductPayload, headers });
+    const res1 = await request.post('/payment/success', { data: payload, headers });
     expect(res1.status()).toBe(200);
 
-    // Identical request with same Idempotency-Key
-    const res2 = await request.post('/wallet/deduct', { data: deductPayload, headers });
+    // Second request with same Idempotency-Key — gets cached response
+    const res2 = await request.post('/payment/success', { data: payload, headers });
     expect(res2.status()).toBe(200);
 
-    // Balance should reflect only ONE deduction
+    // Balance should reflect only ONE credit
     const { balance } = await (await request.get('/wallet/balance', auth(token))).json();
-    expect(balance).toBe(900); // 1000 - 100, NOT 1000 - 200
+    expect(balance).toBe(200); // NOT 400
   });
 
-  test('insufficient balance is rejected atomically', async ({ request }) => {
+  test('insufficient balance is rejected atomically on call/start', async ({ request }) => {
+    // New users have ₹0 balance — /call/start should reject with 400 insufficient
     const { token } = await register(request);
-    await topUpWallet(request, token, 100);
 
-    const res = await request.post('/wallet/deduct', {
-      data: { amount: 150 },
+    const astrologers = await (await request.get('/astrologer')).json();
+    if (!astrologers.length) { test.skip(); return; }
+
+    const res = await request.post('/call/start', {
+      data: { astrologer_id: astrologers[0].id },
       headers: { Authorization: `Bearer ${token}` },
     });
     expect(res.status()).toBe(400);
     const body = await res.json();
     expect(body.error).toMatch(/insufficient/i);
 
-    // Balance unchanged
+    // Balance unchanged at zero
     const { balance } = await (await request.get('/wallet/balance', auth(token))).json();
-    expect(balance).toBe(100);
+    expect(balance).toBe(0);
   });
 });

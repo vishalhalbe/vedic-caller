@@ -1,5 +1,5 @@
 const jwt = require('../services/jwt');
-const { User } = require('../models');
+const supabase = require('../config/db');
 
 const auth = (req, res, next) => {
   const header = req.headers.authorization;
@@ -18,7 +18,11 @@ const auth = (req, res, next) => {
 
 const requireAdmin = async (req, res, next) => {
   try {
-    const user = await User.findByPk(req.user.id, { attributes: ['is_admin'] });
+    const { data: user } = await supabase
+      .from('users')
+      .select('is_admin')
+      .eq('id', req.user.id)
+      .maybeSingle();
     if (!user?.is_admin) return res.status(403).json({ error: 'Admin only' });
     next();
   } catch (err) {
@@ -26,5 +30,13 @@ const requireAdmin = async (req, res, next) => {
   }
 };
 
+const requireAstrologer = (req, res, next) => {
+  if (req.user?.role !== 'astrologer') {
+    return res.status(403).json({ error: 'Astrologer access only' });
+  }
+  next();
+};
+
 module.exports = auth;
-module.exports.requireAdmin = requireAdmin;
+module.exports.requireAdmin      = requireAdmin;
+module.exports.requireAstrologer = requireAstrologer;

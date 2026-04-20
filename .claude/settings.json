@@ -1,0 +1,50 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__playwright__*",
+      "mcp__supabase__*",
+      "Bash(npx playwright*)",
+      "Bash(npm test*)",
+      "Bash(npm run*)",
+      "Bash(node *)",
+      "Bash(git *)",
+      "Read(**)",
+      "Write(**)",
+      "Edit(**)"
+    ]
+  },
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"],
+      "env": {
+        "PLAYWRIGHT_BROWSERS_PATH": "0"
+      }
+    },
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--access-token",
+        "sbp_1f6a71500fe8bbea5d7b8eae29cb44063079fbe0"
+      ]
+    }
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"c:\\Users\\MADHUKAR HALBE\\Downloads\\Vedic-Caller\\vedic-caller\\backend\\api\" && NODE_ENV=test npx playwright test --reporter=list 2>&1 | tail -20"
+          },
+          {
+            "type": "command",
+            "command": "node -e \"\nconst fs = require('fs');\nconst now = new Date().toISOString().slice(0,10);\nconst time = new Date().toLocaleTimeString('en-IN', {timeZone:'Asia/Kolkata'});\nconst entry = '\\n---\\nAuto-updated: ' + now + ' ' + time + ' IST (Stop hook)\\n';\nconst tasksPath = 'c:/Users/MADHUKAR HALBE/Downloads/Vedic-Caller/vedic-caller/TASKS.md';\nconst statusPath = 'c:/Users/MADHUKAR HALBE/Downloads/Vedic-Caller/vedic-caller/STATUS.md';\nlet tasks = fs.readFileSync(tasksPath, 'utf8');\ntasks = tasks.replace(/> Last updated:.*\\n/, '> Last updated: ' + now + ' (auto — Stop hook)\\n');\nfs.writeFileSync(tasksPath, tasks);\nlet status = fs.readFileSync(statusPath, 'utf8');\nstatus = status.replace(/> \\*\\*Date:\\*\\*.*\\n/, '> **Date:** ' + now + ' (auto — Stop hook)\\n');\nfs.writeFileSync(statusPath, status);\nconsole.log('[hook] Updated TASKS.md + STATUS.md timestamps');\n\""
+          }
+        ]
+      }
+    ]
+  }
+}

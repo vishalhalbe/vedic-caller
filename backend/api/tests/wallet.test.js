@@ -2,7 +2,6 @@
  * Billing formula unit tests + wallet integration tests
  */
 const { calculateDeduction } = require('../services/walletService');
-const { runBilling }          = require('../services/billingEngine');
 
 // ── Formula unit tests ────────────────────────────────────────────────────────
 
@@ -12,12 +11,6 @@ describe('calculateDeduction (unit)', () => {
   it('1 sec at ₹60/min = ₹1',       () => expect(calculateDeduction(60,  1)).toBeCloseTo(1,    5));
   it('90 sec at ₹35/min ≈ ₹52.50',  () => expect(calculateDeduction(35, 90)).toBeCloseTo(52.5, 2));
   it('zero seconds = zero cost',     () => expect(calculateDeduction(100, 0)).toBe(0));
-});
-
-describe('runBilling (unit)', () => {
-  it('accumulated 60s billing matches single calculation', () => {
-    expect(runBilling(60, 60)).toBeCloseTo(calculateDeduction(60, 60), 2);
-  });
 });
 
 // ── Wallet API integration tests ──────────────────────────────────────────────
@@ -61,24 +54,14 @@ describe('GET /wallet/balance', () => {
   });
 });
 
-describe('POST /wallet/deduct', () => {
-  it('returns 400 for invalid amount', async () => {
+describe('POST /wallet/deduct (removed)', () => {
+  it('returns 404 — endpoint removed from public API', async () => {
     const { token } = await registerAndLogin();
     const res = await request(app)
       .post('/wallet/deduct')
       .set('Authorization', token)
-      .send({ amount: -10 });
-    expect(res.status).toBe(400);
-  });
-
-  it('returns 400 when balance is insufficient', async () => {
-    const { token } = await registerAndLogin();
-    const res = await request(app)
-      .post('/wallet/deduct')
-      .set('Authorization', token)
-      .send({ amount: 999999 });
-    expect(res.status).toBe(400);
-    expect(res.body.error).toBe('Insufficient balance');
+      .send({ amount: 10 });
+    expect(res.status).toBe(404);
   });
 });
 

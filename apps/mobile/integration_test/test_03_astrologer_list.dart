@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:jyotishconnect/features/astrologer/astrologer_list_screen.dart';
-import 'package:jyotishconnect/features/wallet/wallet_provider.dart';
 import 'package:jyotishconnect/features/astrologer/astrologer_list_screen.dart'
-    show astrologersProvider;
+    show AstrologerListScreen, astrologersProvider;
+import 'package:jyotishconnect/features/wallet/wallet_provider.dart'
+    show walletProvider, WalletNotifier;
 
 final _fakeAstrologers = [
   {
