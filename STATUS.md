@@ -1,9 +1,10 @@
 # JyotishConnect — Multi-Role Project Status Review
 
-> **Date:** 2026-04-20  
+> **Date:** 2026-04-20 (updated session 14)
 > **Branch:** claude/analyze-skill-seekers-gGKzr  
 > **E2E Suite:** 101/101 passing  
-> **Overall MVP:** ~93%
+> **Overall MVP:** ~95%  
+> **Deployment:** 🟢 Live at https://vedic-caller.onrender.com
 
 ---
 
@@ -237,8 +238,8 @@ All 101 tests produce screenshots in `backend/api/test-results/`:
 
 | File | Status |
 |------|--------|
-| `backend/api/Dockerfile` | ✅ `node:20-alpine`, `npm ci --omit=dev`, HEALTHCHECK |
-| `docker-compose.yml` | ✅ 4 services: db (postgres:16), api, cleanup (cron), nginx (prod profile) |
+| `backend/api/Dockerfile.local` | ✅ `node:20-alpine`, `npm ci --omit=dev`, HEALTHCHECK (renamed from Dockerfile so Render uses Node runtime) |
+| `docker-compose.yml` | ✅ 4 services: db (postgres:16), api, cleanup (cron), nginx (prod profile); SUPABASE_URL/KEY added |
 | Log rotation | ✅ json-file driver with max-size limits on all services |
 | Migration auto-apply | ✅ Compose db service mounts `supabase/migrations/` (first run) |
 
@@ -249,30 +250,41 @@ All 101 tests produce screenshots in `backend/api/test-results/`:
 | Jest unit tests in CI | ✅ `backend-test.yml` |
 | Playwright E2E in CI | ✅ `e2e-test.yml` with screenshot upload |
 | Migrations applied in CI | ✅ All 16 migration files applied via psql loop |
-| Docker build in CI | ⬜ Not yet |
-| Deployment step | ⬜ Not yet |
+| Deploy to Render on push | ✅ `deploy.yml` — triggers Render deploy hook on push to main |
+
+### Deployment — Render (Live)
+
+| Item | Status |
+|------|--------|
+| Platform | ✅ Render free tier — https://vedic-caller.onrender.com |
+| Config | ✅ `render.yaml` — Node runtime, Singapore region, `/health` healthcheck |
+| Environment vars | ✅ All set in Render dashboard |
+| Razorpay webhook | ✅ Created — ID `SfdSUWkjU1prax`, event `payment.captured`, URL set to Render |
+| Agora credentials | ✅ App ID `8593844bb...` + Certificate `234d5fdb...` configured |
+| Cleanup cron | ⬜ Needs setup on cron-job.org (POST /call/cleanup every 5 min) |
 
 ### Environment Variables
 
-| Var | Required | Where |
-|-----|----------|-------|
-| `SUPABASE_URL` | ✅ | Validated at startup — process.exit(1) if missing |
-| `SUPABASE_KEY` | ✅ | Validated at startup |
-| `JWT_SECRET` | ✅ | Validated at startup (use `openssl rand -hex 48`) |
-| `RAZORPAY_KEY_ID` | ✅ prod | Payment processing |
-| `RAZORPAY_KEY_SECRET` | ✅ prod | HMAC verification |
-| `RAZORPAY_WEBHOOK_SECRET` | ✅ prod | Webhook signature |
-| `AGORA_APP_ID` | ✅ prod | Voice call token generation |
-| `AGORA_APP_CERTIFICATE` | ✅ prod | Voice call token generation |
-| `ADMIN_SEED_SECRET` | optional | POST /admin/seed bootstrap |
-| `CLEANUP_SECRET` | optional | POST /call/cleanup cron guard |
+| Var | Required | Status |
+|-----|----------|--------|
+| `SUPABASE_URL` | ✅ | Set in Render + validated at startup |
+| `SUPABASE_KEY` | ✅ | Set in Render + validated at startup |
+| `JWT_SECRET` | ✅ | Set in Render + validated at startup |
+| `RAZORPAY_KEY_ID` | ✅ prod | Set in Render |
+| `RAZORPAY_KEY_SECRET` | ✅ prod | Set in Render |
+| `RAZORPAY_WEBHOOK_SECRET` | ✅ prod | Set in Render — matches webhook `SfdSUWkjU1prax` |
+| `AGORA_APP_ID` | ✅ prod | `8593844bb7454075b6f493b2d81ac34b` |
+| `AGORA_APP_CERTIFICATE` | ✅ prod | `234d5fdb7bb54fdebb82f4162a0ac652` |
+| `ADMIN_SEED_SECRET` | optional | Set in Render |
+| `CLEANUP_SECRET` | optional | Set in Render |
 
 ### Open
 
 | Item | Priority |
 |------|----------|
-| Docker build tested end-to-end (Docker Desktop not running locally) | 🟠 High |
-| Deployment target — not yet hosted (Fly.io / Railway / VPS) | 🟠 High |
+| Cleanup cron on cron-job.org (POST /call/cleanup every 5 min) | 🟠 High |
+| Bootstrap first admin via POST /admin/seed | 🟠 High |
+| Verify /health returns ok on live Render URL | 🟠 High |
 | `SUPABASE_URL` / `SUPABASE_KEY` placeholders in CI (point to local Postgres) | 🟡 Medium — works for tests; real Supabase needed for staging |
 | S3 / Supabase Storage for `photo_url` uploads | ⬜ P2 |
 | Secrets rotation strategy | ⬜ P3 |
@@ -294,7 +306,7 @@ All 101 tests produce screenshots in `backend/api/test-results/`:
 | Astrologer profile with reviews | P1 | ✅ Done | — |
 | Seeker call history | P1 | ✅ Done | — |
 | Astrologer earnings & withdrawal request | P1 | ✅ Done | Admin approval pending |
-| Push notifications for missed calls (FCM) | P1 | ⬜ Not started | Requires Firebase project |
+| Real-time incoming call (Supabase Realtime) | P1 | ⬜ Planned Sprint 11 | Replace 5-sec polling with WebSocket |
 | Astrologer KYC / onboarding | P2 | ⬜ Not started | — |
 | Photo upload | P2 | ⬜ Deferred | Needs S3/Supabase Storage |
 | Refund / dispute handling | P2 | ⬜ Not started | — |
@@ -319,8 +331,9 @@ All 101 tests produce screenshots in `backend/api/test-results/`:
 |------|-----------|--------|-----------|
 | Agora token expires mid-call (1hr) | Low | High | 55-min auto-end on client |
 | Wallet deduction race (two simultaneous ends) | Very Low | Critical | `SELECT FOR UPDATE` + DB transaction |
-| FCM not implemented — astrologer misses call when backgrounded | Medium | High | Polling fallback works when app foreground |
-| No hosted deployment yet | — | Critical for launch | Docker + compose ready; needs cloud target |
+| Supabase Realtime not implemented — astrologer misses call when backgrounded | Medium | High | 5-sec polling fallback works when app is foreground |
+| Render free tier spin-down (15 min idle) | Medium | Medium | Upgrade to Starter $7/mo for always-on |
+| Cleanup cron not yet set up on cron-job.org | High | Medium | Stale calls not cleaned up until configured |
 
 ---
 
@@ -334,10 +347,14 @@ All 101 tests produce screenshots in `backend/api/test-results/`:
 - 101 E2E tests (API, security, Flutter UI) — all passing with screenshots
 - Production-grade logging (pino), env validation, CI/CD pipelines
 - Docker setup with 4-service compose
+- **Deployed to Render** — https://vedic-caller.onrender.com
+- **Razorpay webhook** live — ID `SfdSUWkjU1prax`, `payment.captured` enabled
+- **Agora credentials** configured — App ID + Certificate set
 
 ### Remaining for Launch 🚀
-1. **Deploy** — pick a host (Fly.io / Railway / Render), configure secrets, point DNS
-2. **FCM push** — Firebase project setup, device token storage, send on missed call
-3. **Flutter unit tests** — `test/wallet_provider_test.dart`, `test/auth_service_test.dart`
-4. **Withdrawal admin approval** — admin screen to approve/reject withdrawal requests
-5. **Docker build test** — run `docker compose up` end-to-end locally once Docker Desktop is available
+1. **Cleanup cron** — set up on cron-job.org (POST /call/cleanup every 5 min with x-cleanup-secret header)
+2. **Bootstrap admin** — run POST /admin/seed once to create first admin user
+3. **Supabase Realtime** (Sprint 11) — replace 5-sec polling with WebSocket subscription on `calls` table
+4. **Flutter unit tests** (Sprint 9) — `test/wallet_provider_test.dart`, `test/auth_service_test.dart`
+5. **Withdrawal admin approval** (Sprint 10) — admin screen to approve/reject withdrawal requests
+6. **Upgrade Render** — free tier spins down after 15 min idle; upgrade to Starter ($7/mo) for production

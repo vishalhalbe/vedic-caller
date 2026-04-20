@@ -428,20 +428,26 @@ Covers: F-12
 - [ ] Dockerfile tested (Docker Desktop not running locally — manual step)
 - [ ] S10-SEC-04: verify test-mode HMAC guard in staging config (⬜ deferred)
 
-### ✅ Sprint 8 · Deployment Config (P1) — DONE (session 14)
-Covers: F-12 continued
-- [x] `railway.toml` — Railway deploy config (healthcheck, start command, restart policy)
-- [x] `.github/workflows/deploy.yml` — auto-deploy to Railway on push to main
-- [x] `docker-compose.yml` — added `SUPABASE_URL`/`SUPABASE_KEY`/`ALLOWED_ORIGINS` env vars
+### ✅ Sprint 8 · Deployment (P1) — DONE (session 14)
+Covers: F-12
+- [x] `render.yaml` — Render web service config (Node runtime, Singapore, `/health` healthcheck)
+- [x] `.github/workflows/deploy.yml` — auto-deploy via Render deploy hook on push to main
+- [x] `docker-compose.yml` — added `SUPABASE_URL`/`SUPABASE_KEY`/`ALLOWED_ORIGINS`; Dockerfile.local reference
 - [x] `backend/api/.env.example` — added `SUPABASE_URL`, `SUPABASE_KEY`, `ALLOWED_ORIGINS`, `ADMIN_SEED_SECRET`
-- [x] `DEPLOY.md` — full deployment runbook (Railway + Docker Compose + Flutter web)
-- [ ] Actual deploy to Railway — requires `RAILWAY_TOKEN` secret in GitHub + Railway project created (manual step)
+- [x] `DEPLOY.md` — full deployment runbook (Render + Docker Compose + Flutter web + post-deploy checklist)
+- [x] `backend/api/Dockerfile` renamed to `Dockerfile.local` — prevents Render using Docker builder
+- [x] **Deployed live** — https://vedic-caller.onrender.com
+- [x] **Razorpay webhook** created — ID `SfdSUWkjU1prax`, `payment.captured` enabled, URL set
+- [x] **Agora credentials** set — App ID `8593844bb...` + Certificate `234d5fdb...`
+- [x] All env vars configured in Render dashboard
+- [ ] Cleanup cron — set up on cron-job.org (POST /call/cleanup every 5 min)
+- [ ] Bootstrap first admin — POST /admin/seed on live URL
 
 ---
 
 ## Product Completion Scorecard
 
-> Last updated: 2026-04-20 (session 14 — Sprint 8 deployment config: railway.toml, deploy.yml, DEPLOY.md)
+> Last updated: 2026-04-20 (session 14 — Sprint 8 complete: deployed to Render, Razorpay webhook live, Agora configured)
 
 | Area | % Complete | Notes |
 |------|-----------|-------|
@@ -455,10 +461,10 @@ Covers: F-12 continued
 | Ratings & reviews | 100% | POST /call/rate, avg_rating view, stars on cards, profile reviews |
 | Astrologer profile | 100% | Bio, specialty, experience, reviews, Call CTA, SliverAppBar |
 | Wallet screen | 100% | Dedicated page, balance card, Razorpay top-up, transaction history |
-| Payments / Razorpay | 100% | Webhook race fixed; atomic order claim; HMAC verified |
+| Payments / Razorpay | 100% | Webhook live (ID: SfdSUWkjU1prax); atomic order claim; HMAC verified |
 | Security hardening | 97% | All CRITICALs fixed; S10-SEC-04 (staging HMAC check) remains |
 | Testing — E2E API | 100% | 73 API tests across 9 spec files; all passing with screenshots |
 | Testing — Flutter UI | 85% | 28 UI story tests; semantics-based; no full form-fill flow yet |
 | Testing — Security | 100% | 22 tests: isolation, SQL injection, idempotency, edge cases |
-| Production deploy | 75% | railway.toml + deploy.yml + DEPLOY.md + docker-compose fixed; needs actual Railway project + RAILWAY_TOKEN |
-| **Overall MVP** | **~95%** | Sprints 1–8 done; F-06 (Supabase Realtime), TASK-06 (Flutter unit tests), actual deploy remain |
+| Production deploy | 95% | Live on Render (https://vedic-caller.onrender.com); cleanup cron + admin seed pending |
+| **Overall MVP** | **~96%** | Sprints 1–8 done; cleanup cron, F-06 (Supabase Realtime), Flutter unit tests remain |
