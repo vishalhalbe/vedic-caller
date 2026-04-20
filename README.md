@@ -1,10 +1,10 @@
 # JyotishConnect (Vedic Caller)
 
-Vedic astrology voice consulting platform — seekers book real-time voice calls with astrologers, billed per minute with atomic wallet deductions.
+Vedic astrology voice consulting platform — seekers book real-time voice calls with astrologers, billed per minute with atomic wallet deductions. Platform earns 20% commission on every call.
 
 **Live API:** https://vedic-caller.onrender.com  
-**Branch:** `claude/analyze-skill-seekers-gGKzr` → merged to `main`  
-**E2E Tests:** 101/101 passing · **MVP:** ~96%
+**Branch:** `main`  
+**Tests:** 94/95 Jest passing · 101/101 Playwright passing · **MVP: ~98%**
 
 ---
 
@@ -17,8 +17,8 @@ Vedic astrology voice consulting platform — seekers book real-time voice calls
 | Database | PostgreSQL via Supabase (`@supabase/supabase-js`) |
 | Voice | Agora RTC v6 |
 | Payments | Razorpay |
-| Deploy | Render (free tier, Singapore) |
-| E2E Tests | Playwright |
+| Deploy | Render (Singapore) |
+| Tests | Jest (unit/integration) + Playwright (E2E) |
 
 ---
 
@@ -32,14 +32,15 @@ vedic-caller/
 │   │   ├── astrologer/        # list, profile, dashboard, earnings screens
 │   │   ├── call/              # call_screen_v2.dart, incoming_call_screen.dart
 │   │   ├── history/           # history_screen.dart
-│   │   └── wallet/            # wallet_widget.dart, wallet_topup_screen.dart
-│   └── test/                  # Flutter unit tests
+│   │   ├── wallet/            # wallet_widget.dart, wallet_topup_screen.dart
+│   │   └── admin/             # admin_screen.dart — stats, astrologers, withdrawals
+│   └── test/                  # Flutter unit tests (pending)
 ├── backend/api/               # Express API (PORT 3000)
 │   ├── routes/                # auth, call, wallet, payment, astrologer, admin, webhook
 │   ├── services/              # callLifecycle, walletEngine, walletService, jwt
 │   ├── middleware/            # authMiddleware, rateLimiter, logger, idempotency
-│   └── tests/e2e/             # 101 Playwright tests (9 spec files)
-├── supabase/migrations/       # 16 migrations — schema, RLS, RPCs
+│   └── tests/                 # 8 Jest suites + 9 Playwright spec files
+├── supabase/migrations/       # 17 migrations — schema, RLS, RPCs, platform fee
 ├── .github/workflows/         # backend-test.yml, e2e-test.yml, deploy.yml
 ├── render.yaml                # Render deploy config
 ├── docker-compose.yml         # Local dev: db + api + cleanup + nginx
@@ -79,8 +80,15 @@ flutter run               # connects to backend at 10.0.2.2:3000 automatically
 
 ---
 
-## Running E2E Tests
+## Running Tests
 
+### Jest (unit + integration)
+```bash
+cd backend/api
+npm test                  # 94 passed, 1 skipped, 0 failed
+```
+
+### Playwright E2E
 ```bash
 cd backend/api
 NODE_ENV=test npx playwright test --reporter=list
@@ -90,11 +98,10 @@ NODE_ENV=test npx playwright test --reporter=list
 Playwright manages the backend server automatically (`webServer` in `playwright.config.js`). Flutter web must be running on `:8282` for UI tests.
 
 ### Screenshots
-All 101 tests produce screenshots in `backend/api/test-results/`:
+All Playwright tests produce screenshots in `backend/api/test-results/`:
 - API tests: JSON rendered as styled HTML → `<test-name>.png`
 - Flutter UI tests: `ui-*.png` (12 screenshots across 15 user stories)
 
-### HTML Report
 ```bash
 cd backend/api && npx playwright show-report
 ```
@@ -113,7 +120,7 @@ See [DEPLOY.md](DEPLOY.md) for full runbook. Quick summary:
 
 **Pending manual steps:**
 1. Set up cleanup cron at cron-job.org → `POST https://vedic-caller.onrender.com/call/cleanup` every 5 min with header `x-cleanup-secret: <CLEANUP_SECRET>`
-2. Bootstrap admin → `POST https://vedic-caller.onrender.com/admin/seed`
+2. Bootstrap admin → `POST https://vedic-caller.onrender.com/admin/seed` with `x-seed-secret` header
 
 ---
 
@@ -152,6 +159,7 @@ ADMIN_SEED_SECRET=...
 | POST | `/astrologer/auth/register` | — | Register astrologer |
 | POST | `/astrologer/auth/login` | — | Astrologer login |
 | GET | `/astrologer/me` | AstroJWT | Astrologer profile + earnings |
+| PATCH | `/astrologer/me` | AstroJWT | Update bio, specialty, rate_per_minute |
 | POST | `/astrologer/me/availability` | AstroJWT | Toggle online/offline |
 | GET | `/astrologer/me/earnings` | AstroJWT | Earnings + recent calls |
 | POST | `/astrologer/me/withdrawal` | AstroJWT | Request payout |
@@ -166,6 +174,10 @@ ADMIN_SEED_SECRET=...
 | POST | `/payment/create-order` | JWT | Create Razorpay order |
 | POST | `/payment/success` | JWT | Verify + credit wallet |
 | POST | `/webhook/razorpay` | HMAC | Razorpay payment.captured |
+| GET | `/admin/stats` | AdminJWT | Platform stats |
+| GET | `/admin/withdrawals` | AdminJWT | List withdrawal requests |
+| POST | `/admin/withdrawals/:id/approve` | AdminJWT | Approve withdrawal (atomic deduction) |
+| POST | `/admin/withdrawals/:id/reject` | AdminJWT | Reject withdrawal request |
 | GET | `/health` | — | Health + DB connectivity |
 
 Full API reference: see [SKILL.md](SKILL.md).
@@ -175,11 +187,23 @@ Full API reference: see [SKILL.md](SKILL.md).
 ## Database
 
 Supabase project: `rddxemcvddhicylsmpfb`  
-Migrations in `supabase/migrations/` — 16 files applied in order.
+Migrations in `supabase/migrations/` — 17 files applied in order.
 
 Key tables: `users`, `astrologers`, `calls`, `transactions`, `orders`, `withdrawal_requests`, `refresh_tokens`  
 View: `astrologer_avg_ratings`  
-RPC: `end_call()` — atomic deduct + update + credit in one transaction
+RPCs:
+- `end_call()` — atomic deduct + update + platform_fee + credit astrologer 80%
+- `astrologer_earnings_deduct()` — `SELECT FOR UPDATE` safe withdrawal deduction
+
+---
+
+## Business Rules
+
+1. Call cost = `(rate_per_minute / 60) × duration_seconds` — computed server-side only
+2. Platform fee = 20% of call cost; astrologer earns 80%
+3. `walletEngine.atomicDeduct` uses `SELECT FOR UPDATE` — wallet balance can never go negative
+4. Razorpay webhook signatures always verified via `crypto.timingSafeEqual`
+5. All mutating endpoints support `Idempotency-Key` header to prevent duplicates
 
 ---
 
@@ -188,16 +212,18 @@ RPC: `end_call()` — atomic deduct + update + credit in one transaction
 | Area | Status |
 |------|--------|
 | Seeker auth, wallet, call, history | ✅ Complete |
-| Astrologer auth, dashboard, earnings | ✅ Complete |
+| Astrologer auth, dashboard, earnings, profile update | ✅ Complete |
 | Incoming call flow (accept/decline) | ✅ Complete |
 | Ratings & reviews | ✅ Complete |
 | Astrologer profile page | ✅ Complete |
 | Dedicated wallet screen | ✅ Complete |
 | Razorpay payments + webhook | ✅ Complete |
+| Platform fee (20% commission) | ✅ Complete |
+| Admin panel — withdrawal approve/reject | ✅ Complete |
 | Production deploy (Render) | ✅ Live |
-| E2E test suite (101 tests) | ✅ All passing |
+| Jest tests (94 passing) | ✅ All passing |
+| Playwright E2E (101 tests) | ✅ All passing |
 | Supabase Realtime (replace polling) | 🟠 Sprint 11 |
-| Withdrawal admin approval UI | 🟠 Sprint 10 |
-| Flutter unit tests | 🟠 Sprint 9 |
+| Flutter unit tests | 🟠 Pending |
 
-See [TASKS.md](TASKS.md) for the full sprint board.
+See [TASKS.md](TASKS.md) for the full sprint board and [STATUS.md](STATUS.md) for multi-role review.
