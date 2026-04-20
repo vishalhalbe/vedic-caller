@@ -147,3 +147,54 @@ test('withdrawal rejects zero amount', async ({ request, screenshotPage }) => {
   const body = await res.json();
   await recordResult(screenshotPage, 'withdrawal rejects zero amount', res.status(), body);
 });
+
+// ── Profile update (PATCH /astrologer/me) ────────────────────────────────────
+
+test('PATCH /astrologer/me updates bio and specialty', async ({ request, screenshotPage }) => {
+  const { token } = await registerAstrologer(request);
+  const res = await request.patch(`${API}/astrologer/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { bio: 'Expert in Vedic astrology', specialty: 'Kundali' },
+  });
+  expect(res.status()).toBe(200);
+  const body = await res.json();
+  expect(body.bio).toBe('Expert in Vedic astrology');
+  expect(body.specialty).toBe('Kundali');
+  await recordResult(screenshotPage, 'PATCH /astrologer/me updates bio and specialty', res.status(), body);
+});
+
+test('PATCH /astrologer/me updates rate_per_minute', async ({ request, screenshotPage }) => {
+  const { token } = await registerAstrologer(request);
+  const res = await request.patch(`${API}/astrologer/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { rate_per_minute: 20 },
+  });
+  expect(res.status()).toBe(200);
+  const body = await res.json();
+  expect(body.rate_per_minute).toBe(20);
+  await recordResult(screenshotPage, 'PATCH /astrologer/me updates rate_per_minute', res.status(), body);
+});
+
+test('PATCH /astrologer/me rejects non-positive rate', async ({ request, screenshotPage }) => {
+  const { token } = await registerAstrologer(request);
+  const res = await request.patch(`${API}/astrologer/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { rate_per_minute: -5 },
+  });
+  expect(res.status()).toBe(400);
+  const body = await res.json();
+  expect(body.error).toMatch(/positive/i);
+  await recordResult(screenshotPage, 'PATCH /astrologer/me rejects non-positive rate', res.status(), body);
+});
+
+test('PATCH /astrologer/me rejects empty body', async ({ request, screenshotPage }) => {
+  const { token } = await registerAstrologer(request);
+  const res = await request.patch(`${API}/astrologer/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: {},
+  });
+  expect(res.status()).toBe(400);
+  const body = await res.json();
+  expect(body.error).toMatch(/no updatable/i);
+  await recordResult(screenshotPage, 'PATCH /astrologer/me rejects empty body', res.status(), body);
+});
