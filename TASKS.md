@@ -440,8 +440,8 @@ Covers: F-12
 - [x] **Razorpay webhook** created — ID `SfdSUWkjU1prax`, `payment.captured` enabled, URL set
 - [x] **Agora credentials** set — App ID `8593844bb...` + Certificate `234d5fdb...`
 - [x] All env vars configured in Render dashboard
-- [ ] Cleanup cron — set up on cron-job.org (POST /call/cleanup every 5 min)
-- [ ] Bootstrap first admin — POST /admin/seed on live URL
+- [x] Cleanup cron — `render.yaml` cron job (`*/5 * * * *`); replaces cron-job.org
+- [x] Bootstrap first admin — automated in `deploy.yml` post-deploy step (idempotent; skipped if secrets unset)
 
 ### ✅ Sprint 9 · Platform Fee + Admin Withdrawal Flow — DONE (session 15)
 
@@ -455,14 +455,12 @@ Covers: F-12
 - [x] `backend/api/tests/e2e/ui_states.spec.js` — 12 E2E tests: empty states, error states, idempotency, health
 - [x] Migrations applied to Supabase via SQL editor (3 queries; SECURITY DEFINER removed, SET search_path used)
 - [x] `.mcp.json` — Supabase MCP server added with project-ref
-- [ ] Cleanup cron — set up on cron-job.org (POST /call/cleanup every 5 min)
-- [ ] Bootstrap first admin — POST /admin/seed on live URL
 
 ---
 
 ## Product Completion Scorecard
 
-> Last updated: 2026-04-20 (session 16 — admin toggle error handling, docs refresh; 94/95 Jest + 101 Playwright = 195 total tests passing)
+> Last updated: 2026-04-20 (session 17 — all manual steps automated; CI fixed; Render cron + auto admin bootstrap)
 
 | Area | % Complete | Notes |
 |------|-----------|-------|
@@ -483,5 +481,6 @@ Covers: F-12
 | Testing — Playwright E2E | 100% | 101/101 passing with screenshots |
 | Testing — Flutter UI | 85% | 28 UI story tests; semantics-based |
 | Testing — Security | 100% | 22 tests: isolation, SQL injection, idempotency, edge cases |
-| Production deploy | 95% | Live on Render (https://vedic-caller.onrender.com); cleanup cron + admin seed pending |
-| **Overall MVP** | **~98%** | Sprints 1–9 done; 2 manual steps pending (cleanup cron, admin seed), F-06 (Supabase Realtime) deferred |
+| Production deploy | 100% | Live on Render; cleanup cron in render.yaml; admin bootstrap in deploy.yml; CI fixed |
+| CI/CD | 100% | backend-test.yml fixed (Supabase secrets); deploy.yml: health poll + idempotent admin seed |
+| **Overall MVP** | **~99%** | All automated; only F-06 (Supabase Realtime) and Flutter unit tests remain as optional improvements |
