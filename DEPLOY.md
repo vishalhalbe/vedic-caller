@@ -1,18 +1,18 @@
 # JyotishConnect Deployment Guide
 
-## Option A: Railway (Recommended — zero-config)
+## Option A: Render (Recommended — free tier available)
 
-Railway auto-detects Node.js and deploys from git. No Dockerfile required.
+Render auto-detects Node.js from `render.yaml` and deploys from git.
 
 ### One-time setup
 
-1. Create a Railway account at railway.app
-2. Create a new project → "Deploy from GitHub repo"
-3. Select this repository
+1. Create a Render account at render.com
+2. New → Web Service → "Build and deploy from a Git repository"
+3. Connect this GitHub repo — Render reads `render.yaml` automatically
 
-### Set Railway environment variables
+### Set environment variables
 
-In Railway dashboard → Variables, add all vars from `backend/api/.env.example`:
+In Render dashboard → your service → Environment, add:
 
 ```
 NODE_ENV=production
@@ -26,27 +26,33 @@ AGORA_APP_ID=...
 AGORA_APP_CERTIFICATE=...
 CLEANUP_SECRET=<generate: openssl rand -hex 32>
 ADMIN_SEED_SECRET=<generate: openssl rand -hex 32>
-ALLOWED_ORIGINS=https://your-flutter-web-app.com
+ALLOWED_ORIGINS=https://your-flutter-app.netlify.app
 ```
 
-### Add `RAILWAY_TOKEN` to GitHub Secrets
+> **Free tier note:** The free plan spins down after 15 min of inactivity (cold start ~30s).
+> Upgrade to Starter ($7/mo) for always-on with no spin-down.
 
-1. Railway dashboard → Account Settings → Tokens → Create token
-2. GitHub repo → Settings → Secrets → New secret: `RAILWAY_TOKEN`
+### Add `RENDER_DEPLOY_HOOK_URL` to GitHub Secrets
 
-The `.github/workflows/deploy.yml` auto-deploys on every push to `main` that touches `backend/api/`.
+Render dashboard → your service → Settings → Deploy Hook → copy the URL.
+
+GitHub repo → Settings → Secrets → Actions → New secret:
+- Name: `RENDER_DEPLOY_HOOK_URL`
+- Value: the deploy hook URL from Render
+
+The `.github/workflows/deploy.yml` triggers this hook on every push to `main` that touches `backend/api/`.
 
 ### Verify deployment
 
 ```bash
-curl https://your-railway-app.up.railway.app/health
+curl https://your-app.onrender.com/health
 # → {"status":"ok","db":"connected","uptime":...}
 ```
 
 ### Bootstrap first admin
 
 ```bash
-curl -X POST https://your-railway-app.up.railway.app/admin/seed \
+curl -X POST https://your-app.onrender.com/admin/seed \
   -H "Content-Type: application/json" \
   -H "x-seed-secret: $ADMIN_SEED_SECRET" \
   -d '{"email":"admin@example.com","password":"securepassword123"}'
@@ -55,16 +61,18 @@ curl -X POST https://your-railway-app.up.railway.app/admin/seed \
 ### Set up Razorpay webhook
 
 In Razorpay dashboard → Webhooks:
-- URL: `https://your-railway-app.up.railway.app/webhook/razorpay`
+- URL: `https://your-app.onrender.com/webhook/razorpay`
 - Events: `payment.captured`
 - Secret: matches `RAZORPAY_WEBHOOK_SECRET`
 
-### Set up cleanup cron
+### Set up cleanup cron (cron-job.org — free)
 
-Railway Cron jobs or use an external cron service (cron-job.org):
-- URL: `POST https://your-railway-app.up.railway.app/call/cleanup`
-- Header: `x-cleanup-secret: $CLEANUP_SECRET`
-- Schedule: every 5 minutes
+1. Sign up at cron-job.org
+2. New cronjob:
+   - URL: `https://your-app.onrender.com/call/cleanup`
+   - Method: POST
+   - Header: `x-cleanup-secret: <your CLEANUP_SECRET>`
+   - Schedule: every 5 minutes
 
 ---
 
@@ -114,8 +122,8 @@ cd apps/mobile
 flutter build web --release
 
 # Serve static files from build/web/
-# Upload to Netlify, Vercel, or Firebase Hosting
-# Update ALLOWED_ORIGINS in Railway/docker to include the hosting URL
+# Upload to Netlify, Vercel, or Render Static Site (all free)
+# Update ALLOWED_ORIGINS in Render/docker to include the hosting URL
 ```
 
 ---
@@ -128,6 +136,6 @@ flutter build web --release
 - [ ] Astrologer registration + login works
 - [ ] Call start → Agora channel token returned (not null)
 - [ ] Razorpay webhook verified (test via Razorpay dashboard → Test webhook)
-- [ ] Cleanup cron fires every 5 min (check Railway logs)
+- [ ] Cleanup cron fires every 5 min (check Render logs)
 - [ ] Flutter web app points to prod API URL
 - [ ] CORS allows Flutter web origin
