@@ -37,3 +37,35 @@ services:
         sync: false
       - key: ALLOWED_ORIGINS
         sync: false           # e.g. https://your-flutter-app.netlify.app
+
+# Cleanup cron — marks stale active calls (>1hr) as failed every 5 minutes.
+# Replaces the manual cron-job.org setup — version-controlled and auto-deployed.
+crons:
+  - name: call-cleanup
+    runtime: node
+    region: singapore
+    rootDir: backend/api
+    buildCommand: npm ci --omit=dev
+    startCommand: node -e "
+      const https = require('https');
+      const url = new URL(process.env.API_URL || 'https://vedic-caller.onrender.com');
+      const opts = {
+        hostname: url.hostname,
+        path: '/call/cleanup',
+        method: 'POST',
+        headers: { 'x-cleanup-secret': process.env.CLEANUP_SECRET || '' }
+      };
+      const req = https.request(opts, r => {
+        let d = '';
+        r.on('data', c => d += c);
+        r.on('end', () => { console.log(r.statusCode, d); process.exit(r.statusCode === 200 ? 0 : 1); });
+      });
+      req.on('error', e => { console.error(e); process.exit(1); });
+      req.end();
+    "
+    schedule: "*/5 * * * *"
+    envVars:
+      - key: CLEANUP_SECRET
+        sync: false
+      - key: API_URL
+        value: https://vedic-caller.onrender.com

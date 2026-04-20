@@ -11,9 +11,44 @@ jobs:
   deploy:
     name: Render Deploy
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Trigger Render deploy hook
         run: |
           curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+
+      - name: Wait for deployment to be healthy
+        run: |
+          echo "Waiting for Render deployment..."
+          for i in $(seq 1 24); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://vedic-caller.onrender.com/health)
+            echo "Attempt $i: /health → $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "Deployment healthy."
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Deployment did not become healthy in 6 minutes."
+          exit 1
+
+      - name: Bootstrap admin user (idempotent)
+        env:
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          ADMIN_SEED_SECRET: ${{ secrets.ADMIN_SEED_SECRET }}
+        run: |
+          if [ -z "$ADMIN_EMAIL" ] || [ -z "$ADMIN_SEED_SECRET" ]; then
+            echo "ADMIN_EMAIL or ADMIN_SEED_SECRET not set — skipping admin bootstrap"
+            exit 0
+          fi
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST https://vedic-caller.onrender.com/admin/seed \
+            -H "Content-Type: application/json" \
+            -H "x-seed-secret: $ADMIN_SEED_SECRET" \
+            -d "{\"email\": \"$ADMIN_EMAIL\"}")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "Seed response ($HTTP_CODE): $BODY"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Warning: admin seed returned $HTTP_CODE"
+          fi
