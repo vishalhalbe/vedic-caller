@@ -8,7 +8,9 @@ import 'core/token_storage.dart';
 import 'features/auth/login_screen_v2.dart';
 import 'features/astrologer/astrologer_list_screen.dart';
 import 'features/astrologer/astrologer_dashboard_screen.dart';
+import 'features/astrologer/astrologer_profile_screen.dart';
 import 'features/astrologer/earnings_screen.dart';
+import 'features/wallet/wallet_topup_screen.dart';
 import 'features/call/call_screen_v2.dart';
 import 'features/history/history_screen.dart';
 import 'features/wallet/wallet_provider.dart';
@@ -81,6 +83,16 @@ final _router = GoRouter(
           isAstrologer: extra['role'] == 'astrologer',
         );
       },
+    ),
+    GoRoute(
+      path: '/astrologer/:id',
+      builder: (context, state) => AstrologerProfileScreen(
+        astrologerId: state.pathParameters['id']!,
+      ),
+    ),
+    GoRoute(
+      path: '/wallet',
+      builder: (context, state) => const WalletTopUpScreen(),
     ),
     GoRoute(
       path: '/admin',

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../../core/app_provider.dart';
 import '../../services/wallet_service.dart';
@@ -159,10 +160,20 @@ class _WalletWidgetState extends ConsumerState<WalletWidget> {
                   ),
                 ],
               ),
-              IconButton(
-                onPressed: () => ref.read(walletProvider.notifier).refresh(),
-                icon: const Icon(Icons.refresh, color: Colors.white38, size: 18),
-                tooltip: 'Refresh balance',
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () => context.push('/wallet'),
+                    icon: const Icon(Icons.account_balance_wallet_outlined,
+                        color: Colors.amber, size: 20),
+                    tooltip: 'Wallet details',
+                  ),
+                  IconButton(
+                    onPressed: () => ref.read(walletProvider.notifier).refresh(),
+                    icon: const Icon(Icons.refresh, color: Colors.white38, size: 18),
+                    tooltip: 'Refresh balance',
+                  ),
+                ],
               ),
             ],
           ),

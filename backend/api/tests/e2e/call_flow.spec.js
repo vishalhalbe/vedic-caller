@@ -1,5 +1,6 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { expect } = require('@playwright/test');
+const { test, recordResult } = require('./fixtures');
 
 const API = 'http://localhost:3000';
 
@@ -37,17 +38,19 @@ async function creditWallet(request, seekerToken, amount) {
 
 // ── Start call validations ────────────────────────────────────────────────────
 
-test('start call fails when astrologer_id missing', async ({ request }) => {
+test('start call fails when astrologer_id missing', async ({ request, screenshotPage }) => {
   const { token } = await registerSeeker(request);
   const res = await request.post(`${API}/call/start`, {
     headers: { Authorization: `Bearer ${token}` },
     data: {},
   });
   expect(res.status()).toBe(400);
-  expect((await res.json()).error).toMatch(/astrologer_id/i);
+  const body = await res.json();
+  expect(body.error).toMatch(/astrologer_id/i);
+  await recordResult(screenshotPage, 'start call fails when astrologer_id missing', res.status(), body);
 });
 
-test('start call fails when astrologer not found', async ({ request }) => {
+test('start call fails when astrologer not found', async ({ request, screenshotPage }) => {
   const { token } = await registerSeeker(request);
   await creditWallet(request, token, 100);
   const res = await request.post(`${API}/call/start`, {
@@ -55,45 +58,48 @@ test('start call fails when astrologer not found', async ({ request }) => {
     data: { astrologer_id: '00000000-0000-0000-0000-000000000000' },
   });
   expect(res.status()).toBe(404);
+  const body = await res.json();
+  await recordResult(screenshotPage, 'start call fails when astrologer not found', res.status(), body);
 });
 
-test('start call fails when astrologer is offline', async ({ request }) => {
+test('start call fails when astrologer is offline', async ({ request, screenshotPage }) => {
   const { token: seekerToken } = await registerSeeker(request);
   const { astrologer_id } = await registerAstrologer(request);
   await creditWallet(request, seekerToken, 100);
 
-  // Astrologer is offline by default after register
   const res = await request.post(`${API}/call/start`, {
     headers: { Authorization: `Bearer ${seekerToken}` },
     data: { astrologer_id },
   });
   expect(res.status()).toBe(400);
-  expect((await res.json()).error).toMatch(/not available/i);
+  const body = await res.json();
+  expect(body.error).toMatch(/not available/i);
+  await recordResult(screenshotPage, 'start call fails when astrologer is offline', res.status(), body);
 });
 
-test('start call fails with insufficient balance', async ({ request }) => {
+test('start call fails with insufficient balance', async ({ request, screenshotPage }) => {
   const { token: seekerToken } = await registerSeeker(request);
   const { token: astroToken, astrologer_id } = await registerAstrologer(request);
   await setAvailable(request, astroToken, true);
-  // No wallet credit — balance stays at 0
 
   const res = await request.post(`${API}/call/start`, {
     headers: { Authorization: `Bearer ${seekerToken}` },
     data: { astrologer_id },
   });
   expect(res.status()).toBe(400);
-  expect((await res.json()).error).toMatch(/insufficient/i);
+  const body = await res.json();
+  expect(body.error).toMatch(/insufficient/i);
+  await recordResult(screenshotPage, 'start call fails with insufficient balance', res.status(), body);
 });
 
 // ── Full call lifecycle ───────────────────────────────────────────────────────
 
-test('start + end call deducts wallet and returns summary', async ({ request }) => {
+test('start + end call deducts wallet and returns summary', async ({ request, screenshotPage }) => {
   const { token: seekerToken } = await registerSeeker(request);
   const { token: astroToken, astrologer_id } = await registerAstrologer(request);
   await setAvailable(request, astroToken, true);
   await creditWallet(request, seekerToken, 200);
 
-  // Start call
   const startRes = await request.post(`${API}/call/start`, {
     headers: { Authorization: `Bearer ${seekerToken}` },
     data: { astrologer_id },
@@ -104,41 +110,44 @@ test('start + end call deducts wallet and returns summary', async ({ request }) 
   expect(startBody.channel).toBeTruthy();
   expect(startBody.token).toBeTruthy();
 
-  // End call immediately
   const endRes = await request.post(`${API}/call/end`, {
     headers: { Authorization: `Bearer ${seekerToken}` },
     data: { call_id: startBody.call_id },
   });
   expect(endRes.status()).toBe(200);
   const endBody = await endRes.json();
-  // finaliseCall returns { duration, cost } — no status field on response
   expect(typeof endBody.duration).toBe('number');
   expect(typeof endBody.cost).toBe('number');
   expect(endBody.cost).toBeGreaterThanOrEqual(0);
+  await recordResult(screenshotPage, 'start + end call deducts wallet and returns summary', endRes.status(), { start: startBody, end: endBody });
 });
 
 // ── Incoming call polling ─────────────────────────────────────────────────────
 
-test('GET /call/incoming returns null when no active call', async ({ request }) => {
+test('GET /call/incoming returns null when no active call', async ({ request, screenshotPage }) => {
   const { token: astroToken } = await registerAstrologer(request);
   const res = await request.get(`${API}/call/incoming`, {
     headers: { Authorization: `Bearer ${astroToken}` },
   });
   expect(res.status()).toBe(200);
-  expect((await res.json()).call).toBeNull();
+  const body = await res.json();
+  expect(body.call).toBeNull();
+  await recordResult(screenshotPage, 'GET /call/incoming returns null when no active call', res.status(), body);
 });
 
-test('GET /call/incoming is rejected for seekers', async ({ request }) => {
+test('GET /call/incoming is rejected for seekers', async ({ request, screenshotPage }) => {
   const { token } = await registerSeeker(request);
   const res = await request.get(`${API}/call/incoming`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   expect(res.status()).toBe(403);
+  const body = await res.json();
+  await recordResult(screenshotPage, 'GET /call/incoming is rejected for seekers', res.status(), body);
 });
 
 // ── Decline call ─────────────────────────────────────────────────────────────
 
-test('astrologer can decline an active call', async ({ request }) => {
+test('astrologer can decline an active call', async ({ request, screenshotPage }) => {
   const { token: seekerToken } = await registerSeeker(request);
   const { token: astroToken, astrologer_id } = await registerAstrologer(request);
   await setAvailable(request, astroToken, true);
@@ -153,10 +162,12 @@ test('astrologer can decline an active call', async ({ request }) => {
     headers: { Authorization: `Bearer ${astroToken}` },
   });
   expect(declineRes.status()).toBe(200);
-  expect((await declineRes.json()).status).toBe('declined');
+  const body = await declineRes.json();
+  expect(body.status).toBe('declined');
+  await recordResult(screenshotPage, 'astrologer can decline an active call', declineRes.status(), body);
 });
 
-test('decline rejects wrong astrologer', async ({ request }) => {
+test('decline rejects wrong astrologer', async ({ request, screenshotPage }) => {
   const { token: seekerToken } = await registerSeeker(request);
   const { token: astroToken, astrologer_id } = await registerAstrologer(request);
   const { token: otherAstroToken } = await registerAstrologer(request);
@@ -169,9 +180,10 @@ test('decline rejects wrong astrologer', async ({ request }) => {
     data: { astrologer_id },
   })).json();
 
-  // Different astrologer tries to decline
   const res = await request.post(`${API}/call/decline/${startBody.call_id}`, {
     headers: { Authorization: `Bearer ${otherAstroToken}` },
   });
   expect(res.status()).toBe(404);
+  const body = await res.json();
+  await recordResult(screenshotPage, 'decline rejects wrong astrologer', res.status(), body);
 });

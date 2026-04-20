@@ -344,11 +344,11 @@
 |----|---------|----------|--------|
 | F-01 | Astrologer login + role-based routing | 🔴 P0 | ✅ Done (session 11) |
 | F-02 | Astrologer dashboard: online/offline toggle, earnings balance | 🔴 P0 | ✅ Done (session 11) |
-| F-03 | Incoming call notification to astrologer (Supabase Realtime) | 🔴 P0 | ⬜ Not started — Sprint 3 |
-| F-04 | Call accept / reject screen for astrologer | 🔴 P0 | ⬜ Not started — Sprint 3 |
+| F-03 | Incoming call notification to astrologer (polling) | 🔴 P0 | ✅ Done (session 12) |
+| F-04 | Call accept / reject screen for astrologer | 🔴 P0 | ✅ Done (session 12) |
 | F-05 | Astrologer earnings screen + withdrawal request | 🟠 P1 | ✅ Done (session 11) |
 | F-06 | Push notifications — FCM for missed calls when app backgrounded | 🟠 P1 | ⬜ Not started |
-| F-07 | Ratings & reviews: post-call, display on astrologer card | 🟠 P1 | ⬜ Not started |
+| F-07 | Ratings & reviews: post-call, display on astrologer card | 🟠 P1 | ✅ Done (session 12) |
 | F-08 | Seeker registration screen in Flutter UI | 🟠 P1 | ✅ Done (session 11) — role toggle on login screen |
 | F-09 | Astrologer profile page (bio, specialization, reviews, photo) | 🟡 P2 | ⬜ Not started |
 | F-10 | Photo upload endpoint + S3/Supabase storage | 🟡 P2 | ⬜ Deferred (S7-LOW-01) |
@@ -386,18 +386,47 @@ Covers: S10-SEC-01..03, S10-FL-01..02, settings.json
 - [x] main.dart: shared ApiClient in router, global error handlers
 - [x] settings.json: removed bypassPermissions + hardcoded Razorpay credentials, fixed hooks schema
 
-### Sprint 3 · Incoming Call Flow (P0) — NEXT
+### ✅ Sprint 3 · Incoming Call Flow (P0) — DONE (session 12)
 Covers: F-03, F-04
-1. Flutter: Supabase Realtime subscription on astrologer dashboard for new calls
-2. Flutter: `incoming_call_screen.dart` — Accept / Decline with countdown timer
-3. Backend: `POST /call/decline/:call_id` — marks declined, restores availability
-4. Flutter: accepted call → navigate to `call_screen_v2.dart` as astrologer role
+- [x] Flutter: 5-second polling on `AstrologerDashboardScreen` (`GET /call/incoming`)
+- [x] Flutter: `IncomingCallScreen` — 30s countdown, pulsing avatar, Accept / Decline
+- [x] Flutter: accepted call → `CallScreen` as astrologer (isAstrologer: true, prebuilt channel/token)
+- [x] Backend: `POST /call/decline/:call_id` — marks declined, restores availability
+- [x] Backend: `GET /call/incoming` — returns pending call for online astrologer (403 for seekers)
+- [x] E2E: 36 API tests now capture screenshots (fixtures.js + recordResult helper)
+- [x] E2E: all 47 tests green; Stop hook executes full suite
 
-### Sprint 4 · Ratings & Notifications (P1)
-Covers: F-06, F-07
-1. Backend + Flutter: post-call rating (1–5 stars) stored on `calls` table
-2. Display average rating on astrologer card
-3. FCM push for missed incoming calls (background app)
+### ✅ Sprint 4 · Ratings (P1) — DONE (session 12)
+Covers: F-07
+- [x] DB migration: `rating` (smallint 1–5) + `rated_at` columns on `calls`
+- [x] DB migration: `astrologer_avg_ratings` view
+- [x] Backend: `POST /call/rate` — seeker rates completed call, 409 on duplicate
+- [x] Backend: `GET /astrologer` returns `avg_rating` + `rating_count` per astrologer
+- [x] Flutter: post-call rating dialog (1–5 stars) shown after call summary
+- [x] Flutter: star rating displayed on astrologer cards in listing
+- [x] E2E: 6 rating tests — all passing with screenshots
+- [ ] F-06 (FCM push) deferred — requires Firebase project + device token storage
+
+### ✅ Sprint 6 · Astrologer Profile + Wallet Screen (P2) — DONE (session 12)
+Covers: F-09, F-13
+- [x] Backend: `GET /astrologer/:id` — full profile with bio, specialty, reviews, avg_rating
+- [x] Backend: `GET /wallet/transactions` — paginated transaction history
+- [x] Flutter: `AstrologerProfileScreen` — SliverAppBar with avatar, chips, bio, reviews, Call CTA
+- [x] Flutter: astrologer card in list is now tappable → navigates to profile
+- [x] Flutter: `WalletTopUpScreen` — dedicated wallet page with balance card + WalletWidget + transaction history
+- [x] Flutter: wallet icon in WalletWidget header navigates to `/wallet`
+- [x] Routes: `/astrologer/:id` and `/wallet` added to GoRouter
+- [x] E2E: 6 profile + transaction tests — all passing with screenshots
+- [x] Total E2E suite: 59/59 passing
+
+### ✅ Sprint 7 · Production Readiness (P1) — DONE (session 13)
+Covers: F-12
+- [x] Env-var validation at startup — SUPABASE_URL, SUPABASE_KEY, JWT_SECRET required; process.exit(1) if missing
+- [x] Structured JSON logging with `pino` + `pino-http`; pretty-print in dev, JSON in prod
+- [x] `unhandledRejection` now logs via pino (was console.error)
+- [x] GitHub Actions `e2e-test.yml` updated — uses correct `backend/api/tests/e2e/` path, uploads screenshots always
+- [ ] Dockerfile tested (Docker Desktop not running locally — manual step)
+- [ ] S10-SEC-04: verify test-mode HMAC guard in staging config (⬜ deferred)
 
 ---
 
@@ -410,10 +439,10 @@ Covers: F-06, F-07
 | Seeker history | 100% | Done |
 | Admin panel | 70% | Availability toggle admin-only; no user mgmt |
 | Astrologer auth + routing | 100% | Login, register, role JWT, dashboard routing |
-| Astrologer dashboard | 70% | Availability toggle + earnings done; no incoming call UI yet |
+| Astrologer dashboard | 90% | Availability, earnings, incoming call polling + accept/decline done |
 | Astrologer earnings | 90% | Screen + withdrawal request done; admin approval UI missing |
 | Payments / Razorpay | 100% | Webhook race fixed; atomic order claim in both paths |
 | Security hardening | 97% | All CRITICALs fixed; S10-SEC-04 (staging check) remains |
-| Testing (E2E) | 60% | 11 tests passing; no astrologer-path E2E tests yet |
-| Production deploy | 10% | Dockerfile exists; no hosted env |
-| **Overall MVP** | **~65%** | Incoming call flow (Sprint 3) is the remaining P0 blocker |
+| Testing (E2E) | 95% | 59/59 tests passing with screenshots; fixtures.js helper |
+| Production deploy | 40% | Dockerfile exists; pino logging; env validation; CI fixed; Docker Desktop not tested |
+| **Overall MVP** | **~90%** | Sprints 1–7 done; FCM push (F-06) and Flutter unit tests (TASK-06) remain |

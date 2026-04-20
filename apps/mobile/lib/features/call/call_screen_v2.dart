@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../../core/api_client.dart';
 import '../../core/app_provider.dart';
 import '../../services/call_service.dart';
 import '../wallet/wallet_provider.dart';
@@ -195,12 +196,15 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     }
 
     if (!mounted) return;
-    // Only show summary for seekers (billing is seeker-side).
+    // Only show summary + rating for seekers (billing is seeker-side).
     if (_callId != null && !widget.isAstrologer) {
       await _showCallSummary(
         duration: finalDuration ?? _seconds,
         cost:     finalCost ?? (widget.rate / 60) * _seconds,
       );
+      if (mounted) {
+        await _showRatingDialog();
+      }
     }
 
     if (mounted) context.pop();
@@ -250,6 +254,92 @@ class _CallScreenState extends ConsumerState<CallScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showRatingDialog() async {
+    int selected = 0;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF131726),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 36),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Rate your session',
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text('How was your call with ${widget.astrologerName}?',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white54, fontSize: 14)),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (i) {
+                  final star = i + 1;
+                  return GestureDetector(
+                    onTap: () => setModalState(() => selected = star),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Icon(
+                        selected >= star ? Icons.star_rounded : Icons.star_outline_rounded,
+                        color: Colors.amber,
+                        size: 44,
+                      ),
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 28),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white54,
+                        side: const BorderSide(color: Colors.white24),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: const Text('Skip'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.amber.shade600,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: selected == 0
+                          ? null
+                          : () async {
+                              Navigator.of(ctx).pop();
+                              try {
+                                await ApiClient().post('/call/rate',
+                                    data: {'call_id': _callId, 'rating': selected});
+                              } catch (_) {
+                                // Rating failure is silent — don't block user
+                              }
+                            },
+                      child: const Text('Submit', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

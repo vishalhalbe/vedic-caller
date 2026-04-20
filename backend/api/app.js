@@ -1,9 +1,19 @@
 require('dotenv').config();
+
+// ── Env-var validation — fail fast before any I/O ────────────────────────────
+const REQUIRED_ENV = ['SUPABASE_URL', 'SUPABASE_KEY', 'JWT_SECRET'];
+const missing = REQUIRED_ENV.filter(k => !process.env[k]);
+if (missing.length) {
+  console.error(`[startup] Missing required env vars: ${missing.join(', ')}`);
+  process.exit(1);
+}
+
 const express  = require('express');
 const cors     = require('cors');
 const supabase = require('./config/db');
 
-const logger      = require('./middleware/logger');
+const loggerMiddleware = require('./middleware/logger');
+const { logger }       = loggerMiddleware;
 const { globalLimiter, authLimiter } = require('./middleware/rateLimiter');
 const errorHandler  = require('./middleware/errorHandler');
 const idempotency   = require('./middleware/idempotencyMiddleware_v2');
@@ -40,7 +50,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
 }));
 
-app.use(logger);
+app.use(loggerMiddleware);
 app.use(globalLimiter);
 
 // Webhook MUST be mounted before express.json() — it uses express.raw() internally
@@ -84,20 +94,19 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 3000;
 
 process.on('unhandledRejection', (reason) => {
-  console.error('[fatal] Unhandled promise rejection:', reason);
+  logger.fatal({ err: reason }, 'Unhandled promise rejection');
   process.exit(1);
 });
 
 if (require.main === module) {
-  // Verify Supabase connectivity before accepting traffic
   supabase.from('users').select('id').limit(1)
     .then(({ error }) => {
       if (error) throw error;
-      console.log('Supabase connected');
-      app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+      logger.info('Supabase connected');
+      app.listen(PORT, () => logger.info({ port: PORT }, 'Server running'));
     })
     .catch((err) => {
-      console.error('Supabase connection failed:', err.message);
+      logger.error({ err }, 'Supabase connection failed');
       process.exit(1);
     });
 }

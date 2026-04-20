@@ -1,5 +1,6 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { expect } = require('@playwright/test');
+const { test, recordResult } = require('./fixtures');
 
 const API = 'http://localhost:3000';
 
@@ -21,29 +22,30 @@ async function registerAstrologer(request) {
 
 // ── Call history ──────────────────────────────────────────────────────────────
 
-test('call history is empty for new user', async ({ request }) => {
+test('call history is empty for new user', async ({ request, screenshotPage }) => {
   const { token } = await registerSeeker(request);
   const res = await request.get(`${API}/callHistory`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   expect(res.status()).toBe(200);
   const body = await res.json();
-  // Response: { data: [], pagination: { total, page, limit, pages } }
   expect(Array.isArray(body.data)).toBe(true);
   expect(body.data).toHaveLength(0);
   expect(body.pagination.total).toBe(0);
+  await recordResult(screenshotPage, 'call history is empty for new user', res.status(), body);
 });
 
-test('call history requires authentication', async ({ request }) => {
+test('call history requires authentication', async ({ request, screenshotPage }) => {
   const res = await request.get(`${API}/callHistory`);
   expect(res.status()).toBe(401);
+  const body = await res.json();
+  await recordResult(screenshotPage, 'call history requires authentication', res.status(), body);
 });
 
-test('completed call appears in history', async ({ request }) => {
+test('completed call appears in history', async ({ request, screenshotPage }) => {
   const seekerBody = await registerSeeker(request);
   const astroBody  = await registerAstrologer(request);
 
-  // Go online + credit wallet
   await request.post(`${API}/astrologer/me/availability`, {
     headers: { Authorization: `Bearer ${astroBody.token}` },
     data: { available: true },
@@ -53,7 +55,6 @@ test('completed call appears in history', async ({ request }) => {
     data: { amount: 200 },
   });
 
-  // Start then immediately end
   const startBody = await (await request.post(`${API}/call/start`, {
     headers: { Authorization: `Bearer ${seekerBody.token}` },
     data: { astrologer_id: astroBody.astrologer_id },
@@ -64,7 +65,6 @@ test('completed call appears in history', async ({ request }) => {
     data: { call_id: startBody.call_id },
   });
 
-  // History should contain the completed call
   const histRes = await request.get(`${API}/callHistory`, {
     headers: { Authorization: `Bearer ${seekerBody.token}` },
   });
@@ -77,4 +77,5 @@ test('completed call appears in history', async ({ request }) => {
   expect(call.status).toBe('completed');
   expect(typeof call.duration_seconds).toBe('number');
   expect(typeof call.cost).toBe('number');
+  await recordResult(screenshotPage, 'completed call appears in history', histRes.status(), body);
 });

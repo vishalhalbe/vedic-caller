@@ -154,6 +154,38 @@ router.post('/decline/:call_id', auth, requireAstrologer, async (req, res, next)
   }
 });
 
+// POST /call/rate — seeker rates a completed call (1–5 stars)
+router.post('/rate', auth, async (req, res, next) => {
+  try {
+    const { call_id, rating } = req.body;
+    if (!call_id) return res.status(400).json({ error: 'call_id required' });
+    const r = parseInt(rating, 10);
+    if (!r || r < 1 || r > 5) return res.status(400).json({ error: 'rating must be 1–5' });
+
+    const { data: call, error: callErr } = await supabase
+      .from('calls')
+      .select('id, user_id, status, rating')
+      .eq('id', call_id)
+      .eq('user_id', req.user.id)
+      .maybeSingle();
+
+    if (callErr) throw new Error(callErr.message);
+    if (!call) return res.status(404).json({ error: 'Call not found' });
+    if (call.status !== 'completed') return res.status(400).json({ error: 'Can only rate completed calls' });
+    if (call.rating !== null) return res.status(409).json({ error: 'Call already rated' });
+
+    const { error } = await supabase
+      .from('calls')
+      .update({ rating: r, rated_at: new Date().toISOString() })
+      .eq('id', call_id);
+
+    if (error) throw new Error(error.message);
+    res.json({ call_id, rating: r });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/cleanup', async (req, res, next) => {
   try {
     const secret   = req.headers['x-cleanup-secret'];

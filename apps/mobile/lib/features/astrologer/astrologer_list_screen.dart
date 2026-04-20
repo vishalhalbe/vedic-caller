@@ -155,9 +155,11 @@ class _AstrologerListScreenState extends ConsumerState<AstrologerListScreen> {
                                 rate: rate,
                                 isAvailable: a['is_available'] == true,
                                 walletBalance: balance,
-                                specialization: a['specialization'] as String?,
-                                experienceYears: a['experience_years'] as int?,
+                                specialty: a['specialty'] as String?,
+                                yearsExperience: a['years_experience'] as int?,
                                 photoUrl: a['photo_url'] as String?,
+                                avgRating: (a['avg_rating'] as num?)?.toDouble(),
+                                ratingCount: (a['rating_count'] as num?)?.toInt() ?? 0,
                               );
                             },
                           );
@@ -178,9 +180,11 @@ class _AstrologerTile extends StatelessWidget {
   final double rate;
   final bool isAvailable;
   final double walletBalance;
-  final String? specialization;
-  final int? experienceYears;
+  final String? specialty;
+  final int? yearsExperience;
   final String? photoUrl;
+  final double? avgRating;
+  final int ratingCount;
 
   const _AstrologerTile({
     required this.id,
@@ -188,9 +192,11 @@ class _AstrologerTile extends StatelessWidget {
     required this.rate,
     required this.isAvailable,
     required this.walletBalance,
-    this.specialization,
-    this.experienceYears,
+    this.specialty,
+    this.yearsExperience,
     this.photoUrl,
+    this.avgRating,
+    this.ratingCount = 0,
   });
 
   @override
@@ -198,7 +204,9 @@ class _AstrologerTile extends StatelessWidget {
     // Require at least 1 minute of balance before allowing a call
     final canCall = isAvailable && walletBalance >= rate;
 
-    return Container(
+    return GestureDetector(
+      onTap: () => context.push('/astrologer/$id'),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -227,23 +235,41 @@ class _AstrologerTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  name,
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        name,
+                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                      ),
+                    ),
+                    if (avgRating != null) ...[
+                      const Icon(Icons.star_rounded, color: Colors.amber, size: 14),
+                      const SizedBox(width: 2),
+                      Text(
+                        avgRating!.toStringAsFixed(1),
+                        style: const TextStyle(color: Colors.amber, fontSize: 12),
+                      ),
+                      Text(
+                        ' ($ratingCount)',
+                        style: const TextStyle(color: Colors.white38, fontSize: 11),
+                      ),
+                    ],
+                  ],
                 ),
-                if (specialization != null)
+                if (specialty != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
-                      specialization!,
+                      specialty!,
                       style: const TextStyle(color: Colors.deepPurpleAccent, fontSize: 12),
                     ),
                   ),
-                if (experienceYears != null)
+                if (yearsExperience != null && yearsExperience! > 0)
                   Padding(
                     padding: const EdgeInsets.only(top: 1),
                     child: Text(
-                      '$experienceYears yrs exp',
+                      '$yearsExperience yrs exp',
                       style: const TextStyle(color: Colors.white38, fontSize: 11),
                     ),
                   ),
@@ -308,6 +334,6 @@ class _AstrologerTile extends StatelessWidget {
           ),
         ],
       ),
-    );
+    )); // GestureDetector + Container
   }
 }
