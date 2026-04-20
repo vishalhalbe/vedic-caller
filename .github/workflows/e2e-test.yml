@@ -18,34 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: testpass123
-          POSTGRES_DB: jyotish
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    env:
-      NODE_ENV: test
-      # Required env vars validated at startup
-      SUPABASE_URL: http://localhost:5432
-      SUPABASE_KEY: ci-placeholder-key
-      JWT_SECRET: ci-test-secret-at-least-48-chars-long-for-safety
-      DB_URI: postgres://postgres:testpass123@localhost:5432/jyotish
-      RAZORPAY_KEY_ID: rzp_test_placeholder
-      RAZORPAY_KEY_SECRET: test_secret_placeholder
-      RAZORPAY_WEBHOOK_SECRET: ''
-      AGORA_APP_ID: test_agora_app_id
-      AGORA_APP_CERTIFICATE: test_agora_certificate
-      PORT: 3000
+    defaults:
+      run:
+        working-directory: backend/api
 
     steps:
       - uses: actions/checkout@v4
@@ -58,24 +33,25 @@ jobs:
           cache-dependency-path: backend/api/package-lock.json
 
       - name: Install backend dependencies
-        working-directory: backend/api
         run: npm ci
 
-      - name: Apply database migrations
-        env:
-          PGPASSWORD: testpass123
-        run: |
-          for f in supabase/migrations/*.sql; do
-            echo "Applying $f"
-            psql -h localhost -U postgres -d jyotish -f "$f" || true
-          done
-
       - name: Install Playwright browsers
-        working-directory: backend/api
         run: npx playwright install --with-deps chromium
 
       - name: Run Playwright E2E tests
-        working-directory: backend/api
+        env:
+          NODE_ENV: test
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          JWT_SECRET: ci-test-secret-at-least-48-chars-long-for-safety
+          RAZORPAY_KEY_ID: rzp_test_placeholder
+          RAZORPAY_KEY_SECRET: test_secret_placeholder
+          RAZORPAY_WEBHOOK_SECRET: ''
+          AGORA_APP_ID: test_agora_app_id
+          AGORA_APP_CERTIFICATE: test_agora_certificate
+          ADMIN_SEED_SECRET: test_admin_seed
+          CLEANUP_SECRET: test_cleanup_secret
+          PORT: 3000
         run: npx playwright test --reporter=list
 
       - name: Upload Playwright report
