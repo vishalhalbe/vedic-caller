@@ -46,12 +46,12 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           JWT_SECRET: ci-test-secret-at-least-48-chars-long-for-safety
-          RAZORPAY_KEY_ID: rzp_test_placeholder
-          RAZORPAY_KEY_SECRET: test_secret_placeholder
+          RAZORPAY_KEY_ID: ${{ secrets.RAZORPAY_TEST_KEY_ID }}
+          RAZORPAY_KEY_SECRET: ${{ secrets.RAZORPAY_TEST_KEY_SECRET }}
           RAZORPAY_WEBHOOK_SECRET: ''
-          AGORA_APP_ID: test_agora_app_id
-          AGORA_APP_CERTIFICATE: test_agora_certificate
-          ADMIN_SEED_SECRET: test_admin_seed
+          AGORA_APP_ID: ${{ secrets.AGORA_APP_ID }}
+          AGORA_APP_CERTIFICATE: ${{ secrets.AGORA_APP_CERTIFICATE }}
+          ADMIN_SEED_SECRET: ${{ secrets.ADMIN_SEED_SECRET }}
           CLEANUP_SECRET: test_cleanup_secret
           PORT: 3000
         run: npx playwright test --reporter=list
