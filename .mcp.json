@@ -12,6 +12,15 @@
         "--header",
         "Authorization: Basic ${RAZORPAY_MCP_TOKEN}"
       ]
+    },
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--access-token",
+        "${SUPABASE_ACCESS_TOKEN}"
+      ]
     }
   }
 }
