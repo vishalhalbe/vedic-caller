@@ -29,7 +29,9 @@ services:
         max-file: "3"
 
   api:
-    build: ./backend/api
+    build:
+      context: ./backend/api
+      dockerfile: Dockerfile.local
     ports:
       - "3000:3000"
     environment:
