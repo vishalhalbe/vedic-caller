@@ -35,6 +35,10 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3000
+      # Supabase cloud (required) — set in .env or export before docker compose up
+      SUPABASE_URL: "${SUPABASE_URL:?SUPABASE_URL must be set}"
+      SUPABASE_KEY: "${SUPABASE_KEY:?SUPABASE_KEY must be set}"
+      # Local Postgres fallback (used by direct psql / migrations only — not the API)
       DB_URI: postgres://postgres:postgres@db:5432/jyotish
       JWT_SECRET: "${JWT_SECRET:?JWT_SECRET must be set - run: export JWT_SECRET=$(openssl rand -hex 48)}"
       RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
@@ -44,6 +48,7 @@ services:
       AGORA_APP_CERTIFICATE: ${AGORA_APP_CERTIFICATE:-}
       CLEANUP_SECRET: ${CLEANUP_SECRET:-dev_cleanup_secret}
       ADMIN_SEED_SECRET: ${ADMIN_SEED_SECRET:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:8282}
     depends_on:
       db:
         condition: service_healthy

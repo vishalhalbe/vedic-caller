@@ -1,0 +1,17 @@
+[build]
+builder = "NIXPACKS"
+buildCommand = "cd backend/api && npm ci --omit=dev"
+
+[deploy]
+startCommand = "cd backend/api && node app.js"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "api"
+
+[services.networking]
+# Railway assigns PORT automatically — app reads process.env.PORT
+allowedInboundTraffic = ["TCP"]

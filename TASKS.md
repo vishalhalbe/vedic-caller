@@ -347,7 +347,7 @@
 | F-03 | Incoming call notification to astrologer (polling) | 🔴 P0 | ✅ Done (session 12) |
 | F-04 | Call accept / reject screen for astrologer | 🔴 P0 | ✅ Done (session 12) |
 | F-05 | Astrologer earnings screen + withdrawal request | 🟠 P1 | ✅ Done (session 11) |
-| F-06 | Push notifications — FCM for missed calls when app backgrounded | 🟠 P1 | ⬜ Not started |
+| F-06 | Real-time incoming call — replace 5-sec polling with Supabase Realtime WebSocket | 🟠 P1 | ⬜ Planned (Sprint 11) |
 | F-07 | Ratings & reviews: post-call, display on astrologer card | 🟠 P1 | ✅ Done (session 12) |
 | F-08 | Seeker registration screen in Flutter UI | 🟠 P1 | ✅ Done (session 11) — role toggle on login screen |
 | F-09 | Astrologer profile page (bio, specialization, reviews, photo) | 🟡 P2 | ⬜ Not started |
@@ -428,11 +428,20 @@ Covers: F-12
 - [ ] Dockerfile tested (Docker Desktop not running locally — manual step)
 - [ ] S10-SEC-04: verify test-mode HMAC guard in staging config (⬜ deferred)
 
+### ✅ Sprint 8 · Deployment Config (P1) — DONE (session 14)
+Covers: F-12 continued
+- [x] `railway.toml` — Railway deploy config (healthcheck, start command, restart policy)
+- [x] `.github/workflows/deploy.yml` — auto-deploy to Railway on push to main
+- [x] `docker-compose.yml` — added `SUPABASE_URL`/`SUPABASE_KEY`/`ALLOWED_ORIGINS` env vars
+- [x] `backend/api/.env.example` — added `SUPABASE_URL`, `SUPABASE_KEY`, `ALLOWED_ORIGINS`, `ADMIN_SEED_SECRET`
+- [x] `DEPLOY.md` — full deployment runbook (Railway + Docker Compose + Flutter web)
+- [ ] Actual deploy to Railway — requires `RAILWAY_TOKEN` secret in GitHub + Railway project created (manual step)
+
 ---
 
 ## Product Completion Scorecard
 
-> Last updated: 2026-04-20 (session 13 — 101/101 E2E tests, security + edge case suite, Flutter UI tests)
+> Last updated: 2026-04-20 (session 14 — Sprint 8 deployment config: railway.toml, deploy.yml, DEPLOY.md)
 
 | Area | % Complete | Notes |
 |------|-----------|-------|
@@ -451,5 +460,5 @@ Covers: F-12
 | Testing — E2E API | 100% | 73 API tests across 9 spec files; all passing with screenshots |
 | Testing — Flutter UI | 85% | 28 UI story tests; semantics-based; no full form-fill flow yet |
 | Testing — Security | 100% | 22 tests: isolation, SQL injection, idempotency, edge cases |
-| Production deploy | 40% | Dockerfile, docker-compose, pino logging, env validation, CI/CD; not deployed |
-| **Overall MVP** | **~93%** | Sprints 1–7 done; F-06 (FCM push), TASK-06 (Flutter unit tests), deployment remain |
+| Production deploy | 75% | railway.toml + deploy.yml + DEPLOY.md + docker-compose fixed; needs actual Railway project + RAILWAY_TOKEN |
+| **Overall MVP** | **~95%** | Sprints 1–8 done; F-06 (Supabase Realtime), TASK-06 (Flutter unit tests), actual deploy remain |
