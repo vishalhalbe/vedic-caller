@@ -68,7 +68,7 @@ Test actual Flutter web rendering and user interactions. **Skipped in CI** (Flut
 
 ### Layer 5 — Visual & SDK Tests (Playwright `page` fixture — local only)
 **NEW** — catch rendering failures invisible to API tests:
-- `visual_ui.spec.js` — 11 tests:
+- `visual_ui.spec.js` — 19 tests:
   - VIS-01: No broken icon □ boxes — Material Icons font loaded
   - VIS-02: No fatal JS errors on load
   - VIS-03: `window.Razorpay` defined — checkout.js injected in index.html
@@ -79,6 +79,9 @@ Test actual Flutter web rendering and user interactions. **Skipped in CI** (Flut
   - VIS-09: Wallet shows ₹0.00 for new user
   - VIS-10: Astrologer profile shows rate badge + availability badge
   - VIS-11: `/wallet/create-order` returns order_id before Razorpay opens
+  - VIS-12/13: axe-core WCAG 2.0/2.1 audit + semantics tree accessible
+  - VIS-14: No overflow at 414px (iPhone Plus) and 1024px (iPad)
+  - VIS-15–18: Async states — loading spinner, empty states, form inputs present
 
 ## Critical Test Cases
 
@@ -143,4 +146,7 @@ npx playwright test tests/e2e/visual_ui.spec.js --update-snapshots
 4. **Every new Flutter screen needs a VIS test** — at minimum: no JS errors, key widget visible, no overflow
 5. **Every new payment SDK integration needs a SDK-loaded test** — check `window.SdkName` is defined
 6. **Visual regression baseline must be updated when UI changes intentionally** — run `--update-snapshots`
-7. **API E2E tests must cover both happy path and the primary error case** — e.g. insufficient balance
+7. **Every new screen needs an axe-core audit test** — use VIS-12 pattern, suppress canvas-specific rules
+8. **Cross-browser (Firefox + WebKit) runs locally** — guarded by `CI` env in playwright.config.js; run before each release
+9. **Form validation edge cases must be tested at API level** — empty fields, short passwords, malformed email, SQL injection, XSS payload
+10. **API E2E tests must cover both happy path and the primary error case** — e.g. insufficient balance

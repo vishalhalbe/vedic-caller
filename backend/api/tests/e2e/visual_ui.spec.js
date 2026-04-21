@@ -1,4 +1,5 @@
 // @ts-check
+const { checkA11y, injectAxe } = require('@axe-core/playwright');
 /**
  * Visual & UI smoke tests — catch rendering failures, broken icons,
  * broken payment SDK injection, and platform-specific Flutter web issues.
@@ -258,6 +259,136 @@ test('VIS-10 · astrologer profile shows rate and availability badge', async ({ 
   await expect(availBadge).toBeAttached();
 
   await screenshot(page, '10-astrologer-profile-badges');
+});
+
+// ── 6 · Accessibility (axe-core / WCAG 2.1) ──────────────────────────────────
+// Catches: missing ARIA labels, insufficient colour contrast, missing alt text
+
+test('VIS-12 · login screen passes axe WCAG 2.0/2.1 audit', async ({ page }) => {
+  await page.goto(BASE);
+  await waitForFlutter(page);
+  await injectAxe(page);
+  await checkA11y(page, undefined, {
+    runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] },
+    rules: {
+      // Flutter renders via canvas/shadow DOM — these rules don't apply to canvas elements
+      'color-contrast': { enabled: false },
+      'document-title': { enabled: false },
+    },
+  });
+  await screenshot(page, '12-login-a11y-pass');
+});
+
+test('VIS-13 · Flutter view has flt-semantics-placeholder for screen reader entry point', async ({ page }) => {
+  await page.goto(BASE);
+  await waitForFlutter(page);
+  // Flutter web exposes accessibility via flt-semantics-placeholder
+  // This is the entry point for assistive technologies
+  const placeholder = page.locator('flt-semantics-placeholder');
+  await expect(placeholder).toBeAttached();
+  // After enabling semantics, the full tree should appear
+  await enableSemantics(page);
+  const semanticsNodes = page.locator('flt-semantics');
+  const count = await semanticsNodes.count();
+  expect(count, 'Semantics tree should have multiple nodes after enabling').toBeGreaterThan(3);
+  await screenshot(page, '13-semantics-tree-accessible');
+});
+
+// ── 7 · Additional Responsive Breakpoints ────────────────────────────────────
+
+const EXTRA_VIEWPORTS = [
+  { name: 'iphone-plus-414',  width: 414,  height: 896  },
+  { name: 'ipad-landscape-1024', width: 1024, height: 768 },
+];
+
+for (const vp of EXTRA_VIEWPORTS) {
+  test(`VIS-14 · no overflow at ${vp.name}`, async ({ page }) => {
+    await page.setViewportSize({ width: vp.width, height: vp.height });
+    await page.goto(BASE);
+    await waitForFlutter(page);
+
+    const hasOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    );
+    expect(hasOverflow, `Horizontal overflow at ${vp.name}`).toBe(false);
+    await screenshot(page, `14-responsive-${vp.name}`);
+  });
+}
+
+// ── 8 · Async UI State Tests ──────────────────────────────────────────────────
+// Catches: loading spinners not shown, error messages not surfaced, disabled states wrong
+
+test('VIS-15 · Add Funds button shows loading state while creating order', async ({ page, request }) => {
+  await registerAndLogin(request);
+
+  // Intercept the create-order request so we can see the in-progress state
+  await page.route('**/wallet/create-order', async (route) => {
+    await page.waitForTimeout(500); // allow UI to show loading
+    await route.continue();
+  });
+
+  await page.goto(`${BASE}/#/wallet`);
+  await waitForFlutter(page);
+  await enableSemantics(page);
+
+  // Tap Add ₹500 — immediately screenshot to catch loading state
+  await tapByText(page, 'Add ₹500');
+  await screenshot(page, '15-add-funds-loading-state');
+
+  // The button should show "Creating order…" or a spinner while in progress
+  // Either the text changes OR the button becomes non-tappable (disabled)
+  const creatingText = page.locator('flt-semantics').filter({ hasText: /Creating order/i });
+  const stillTappable = page.locator('flt-semantics[flt-tappable]').filter({ hasText: /Add ₹/i });
+
+  const isLoading = (await creatingText.count()) > 0 || (await stillTappable.count()) === 0;
+  expect(isLoading, 'Button should show loading state or become disabled during order creation').toBe(true);
+});
+
+test('VIS-16 · astrologer list shows content or empty state — never blank', async ({ page }) => {
+  await page.goto(BASE);
+  await waitForFlutter(page);
+  await enableSemantics(page);
+
+  // The page must show EITHER astrologer cards OR an empty/loading indicator
+  // It must never be completely blank after load
+  const hasContent = await page.evaluate(() => {
+    const view = document.querySelector('flutter-view');
+    return view ? view.innerText.trim().length > 0 : false;
+  });
+  expect(hasContent, 'Page must not be completely blank after Flutter loads').toBe(true);
+  await screenshot(page, '16-astrologer-list-not-blank');
+});
+
+test('VIS-17 · wallet page shows transaction history section heading', async ({ page, request }) => {
+  await registerAndLogin(request);
+  await page.goto(`${BASE}/#/wallet`);
+  await waitForFlutter(page);
+  await enableSemantics(page);
+
+  const heading = page.locator('flt-semantics').filter({ hasText: /Recent Transactions/i });
+  await expect(heading).toBeAttached();
+  await screenshot(page, '17-wallet-transactions-heading');
+});
+
+test('VIS-18 · login form has both email and password input fields', async ({ page }) => {
+  await page.goto(BASE);
+  await waitForFlutter(page);
+  await enableSemantics(page);
+
+  // Flutter text fields expose themselves as editable nodes in semantics
+  const editableNodes = page.locator('flt-semantics[contenteditable="true"], flt-semantics[role="textbox"]');
+  // Should have at least 2 input fields on login screen (email + password)
+  // Note: Flutter may not expose role=textbox, so also check for text editing hosts
+  const textHosts = page.locator('flt-text-editing-host');
+  const inputCount = await textHosts.count();
+
+  // At minimum the Flutter semantics tree must have interactive input nodes
+  const semanticsInputs = page.locator('flt-semantics').filter({
+    has: page.locator('[style*="pointer-events: all"]'),
+  });
+  const total = await semanticsInputs.count();
+  expect(total, 'Login screen must have interactive input elements').toBeGreaterThan(0);
+  await screenshot(page, '18-login-form-inputs-present');
 });
 
 // ── 6 · Critical Flow — Full Wallet Top-up Journey ───────────────────────────

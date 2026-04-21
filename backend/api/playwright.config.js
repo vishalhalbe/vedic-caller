@@ -36,5 +36,10 @@ module.exports = defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+    // Firefox and WebKit run locally only — Flutter web has no cross-browser CI build
+    ...(process.env.CI ? [] : [
+      { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+      { name: 'webkit',  use: { ...devices['Desktop Safari']  } },
+    ]),
   ],
 });

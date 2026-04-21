@@ -160,3 +160,75 @@ test('UI-12 · GET /wallet/transactions returns paginated array', async ({ reque
   expect(Array.isArray(txns)).toBe(true);
   await recordResult(screenshotPage, 'UI-12 wallet transactions empty array', res.status(), { count: txns.length });
 });
+
+// ── Form validation edge cases ────────────────────────────────────────────────
+
+test('FORM-01 · register with empty email returns 400', async ({ request, screenshotPage }) => {
+  const res = await request.post(`${API}/auth/register`, {
+    data: { email: '', password: 'password123', name: 'Test User' },
+  });
+  expect(res.status()).toBe(400);
+  const body = await res.json();
+  expect(body.error).toBeTruthy();
+  await recordResult(screenshotPage, 'FORM-01 empty email returns 400', res.status(), body);
+});
+
+test('FORM-02 · register with empty password returns 400', async ({ request, screenshotPage }) => {
+  const email = `form_${Date.now()}@test.com`;
+  const res = await request.post(`${API}/auth/register`, {
+    data: { email, password: '', name: 'Test User' },
+  });
+  expect(res.status()).toBe(400);
+  const body = await res.json();
+  expect(body.error).toBeTruthy();
+  await recordResult(screenshotPage, 'FORM-02 empty password returns 400', res.status(), body);
+});
+
+test('FORM-03 · register with password shorter than 8 chars returns 400', async ({ request, screenshotPage }) => {
+  const email = `form_${Date.now()}@test.com`;
+  const res = await request.post(`${API}/auth/register`, {
+    data: { email, password: 'abc', name: 'Test User' }, // 3 chars < MIN_PASS (8)
+  });
+  expect(res.status()).toBe(400);
+  const body = await res.json();
+  expect(body.error).toBeTruthy();
+  await recordResult(screenshotPage, 'FORM-03 short password returns 400', res.status(), body);
+});
+
+test('FORM-04 · register with malformed email (no @) returns 400', async ({ request, screenshotPage }) => {
+  const res = await request.post(`${API}/auth/register`, {
+    data: { email: 'notanemail', password: 'password123', name: 'Test User' },
+  });
+  expect(res.status()).toBe(400);
+  const body = await res.json();
+  expect(body.error).toBeTruthy();
+  await recordResult(screenshotPage, 'FORM-04 malformed email returns 400', res.status(), body);
+});
+
+test('FORM-05 · login with SQL injection in email does not cause 500', async ({ request, screenshotPage }) => {
+  const res = await request.post(`${API}/auth/login`, {
+    data: { email: "' OR '1'='1", password: 'password123' },
+  });
+  // Must return 400 or 401 — never 500 (which would indicate unhandled SQL error)
+  expect(res.status()).toBeGreaterThanOrEqual(400);
+  expect(res.status()).toBeLessThan(500);
+  await recordResult(screenshotPage, 'FORM-05 SQL injection returns 4xx not 500', res.status(), {});
+});
+
+test('FORM-06 · register with XSS payload in name stores it safely', async ({ request, screenshotPage }) => {
+  const email = `form_xss_${Date.now()}@test.com`;
+  const xssPayload = '<script>alert("xss")</script>';
+  const res = await request.post(`${API}/auth/register`, {
+    data: { email, password: 'password123', name: xssPayload },
+  });
+  // Registration may succeed (201) or reject (400) — either is acceptable
+  // What must NOT happen: 500, or raw script returned unescaped in JSON
+  expect(res.status()).toBeLessThan(500);
+  if (res.status() === 201) {
+    const body = await res.json();
+    // If accepted, verify the response does not echo back executable script
+    const bodyStr = JSON.stringify(body);
+    expect(bodyStr).not.toContain('<script>');
+  }
+  await recordResult(screenshotPage, 'FORM-06 XSS payload handled safely', res.status(), {});
+});
